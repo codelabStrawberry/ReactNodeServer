@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  node:
+    build: ./server
+    env_file:
+      - ./server/.env
+    networks:
+      - backend
+
+  nginx:
+    build: ./client
+    ports:
+      - "80:80"
+    depends_on:
+      - node
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
