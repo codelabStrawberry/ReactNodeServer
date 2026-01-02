@@ -1,16 +1,210 @@
-# React + Vite
+# React + Node.js Server (Docker 기반)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React(Client)와 Node.js(Server)를 Docker로 구성하고,
+개발 환경과 배포 환경을 명확히 분리한 **실무용 풀스택 템플릿**입니다.
 
-Currently, two official plugins are available:
+* React: Vite 기반
+* API Server: Node.js (Express)
+* DB: MySQL / Redis (외부 Docker 컨테이너)
+* 배포: Nginx + GitHub Actions 자동 배포
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 📁 프로젝트 구조
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```
+project-root/
+├── client/                 # React (Vite)
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── .env.development
+│   ├── .env.production
+│   └── src/
+│       ├── components/
+│       ├── store/
+│       ├── App.css
+│       ├── App.jsx
+│       ├── index.css
+│       └── main.jsx
+│
+├── server/                 # Node.js API Server
+│   ├── Dockerfile
+│   ├── .env
+│   └── src/
+│       ├── db/
+│       │   ├── db.js           # MySQL 공통 연결
+│       │   ├── board_db.js     # 게시판 DB 로직
+│       │   └── user_db.js      # 유저 DB 로직
+│       ├── routes/
+│       │   ├── board_router.js
+│       │   └── user_router.js
+│       └── index.js            # 서버 엔트리 포인트
+│
+├── docker-compose.yml
+├── .env                    # 서버 배포용 환경 변수
+└── .github/
+    └── workflows/
+        └── deploy.yml       # GitHub Actions 자동 배포
+```
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🧩 아키텍처 개요
+
+```
+[React Dev (Vite :5173)] ── axios ─▶ [Node API :3000]
+
+[React Prod (Nginx :80)] ── /api proxy ─▶ [Node API]
+                                   │
+                                   ├── MySQL (외부 Docker)
+                                   └── Redis (외부 Docker)
+```
+
+---
+
+## ⚙️ 환경 변수 설정
+
+### 📁 React 환경 변수
+
+#### `.env.development`
+
+```env
+VITE_API_URL=http://localhost:3000
+```
+
+#### `.env.production`
+
+```env
+VITE_API_URL=/api
+```
+
+> 개발 환경에서는 Node 서버에 직접 접근하고,
+> 배포 환경에서는 Nginx를 통해 `/api`로 프록시됩니다.
+
+---
+
+### 📁 Node 서버 환경 변수 (`server/.env`)
+
+```env
+MYSQL_HOST=mysql
+MYSQL_USER=root
+MYSQL_PASSWORD=pass
+MYSQL_DB=test
+
+REDIS_HOST=redis
+SERVER_PORT=3000
+```
+
+---
+
+## 🚀 개발 환경 실행
+
+### 1️⃣ MySQL / Redis 실행 (외부 Docker)
+
+```bash
+docker run -d --name mysql \
+  -e MYSQL_ROOT_PASSWORD=pass \
+  -e MYSQL_DATABASE=test \
+  -p 3306:3306 mysql:8
+
+docker run -d --name redis \
+  -p 6379:6379 redis
+```
+
+---
+
+### 2️⃣ Node Server 실행
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+* 서버 주소: `http://localhost:3000`
+* API Prefix: `/api`
+
+---
+
+### 3️⃣ React Client 실행
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+* React 개발 서버: `http://localhost:5173`
+* API 요청은 `VITE_API_URL` 기준으로 처리됨
+
+---
+
+## 🗄️ MySQL 초기 테이블 생성
+
+* `server/src/db/init.sql` 참고
+* 서버 실행 전 1회 실행 권장
+
+```bash
+docker exec -it mysql mysql -u root -p test < init.sql
+```
+
+---
+
+## 🐳 Docker 기반 배포
+
+### 실행
+
+```bash
+docker compose up -d --build
+```
+
+* React: `http://서버IP`
+* API: `http://서버IP/api`
+
+---
+
+## 🔁 React 개발 / 배포 차이
+
+| 구분       | 개발              | 배포    |
+| -------- | --------------- | ----- |
+| React 실행 | Vite Dev Server | Nginx |
+| API 호출   | localhost:3000  | /api  |
+| 프록시      | ❌               | ✅     |
+
+---
+
+## 🔐 GitHub Actions 자동 배포
+
+* `main` 브랜치 push 시 자동 배포
+* 서버에서 `docker compose up -d --build` 실행
+
+필요 Secrets:
+
+* `SERVER_HOST`
+* `SERVER_USER`
+* `SERVER_KEY`
+
+---
+
+## ✅ 포함 기능 요약
+
+* React / Node 분리 구조
+* 개발/배포 환경 완전 분리
+* MySQL / Redis 외부 Docker 연동
+* Nginx API 프록시
+* GitHub Actions 자동 배포
+
+---
+
+## 📌 추천 확장
+
+* HTTPS (Let's Encrypt)
+* PM2 무중단 배포
+* docker-compose.prod.yml 분리
+* Redis Session / Cache 적용
+* Swagger API 문서
+
+---
+
+💡 **실무에서 바로 사용 가능한 기본 템플릿**입니다.
+필요 시 구조 확장, 인증(JWT), 권한, CI/CD 고도화까지 지원 가능합니다.
