@@ -2,6 +2,7 @@ import styled from "@emotion/styled";
 import { useRef, useState } from "react";
 
 export default function ChatPage() {
+  // url 등록
   const [url, setUrl] = useState("");
 
   // 파일 업로드
