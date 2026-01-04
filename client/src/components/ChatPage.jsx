@@ -1,5 +1,6 @@
 import styled from "@emotion/styled";
 import { useRef, useState } from "react";
+import Chatbot from "./Chatbot";
 
 export default function ChatPage() {
   // url 등록
@@ -78,13 +79,7 @@ export default function ChatPage() {
         </LeftWrap>
       </LeftWrapper>
       <RightWrapper>
-        <ChatWrap>
-          <TextBox></TextBox>
-          <SendBox>
-            <InputArea></InputArea>
-            <Button>전송</Button>
-          </SendBox>
-        </ChatWrap>
+        <Chatbot />
       </RightWrapper>
     </Container>
   );
@@ -92,20 +87,20 @@ export default function ChatPage() {
 
 const Container = styled.div`
   display: flex;
-  justify-content: space-between;
-  gap: 40px;
+  gap: 20px;
 `;
 const LeftWrapper = styled.div`
-  width: 100%;
-  flex: 1;
-  padding: 1.5em;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
 `;
 const LeftWrap = styled.div`
-  width: 500px;
+  width: 100%;
+  max-width: 600px;
 `;
 const Title = styled.h1`
   margin-bottom: 1.5em;
@@ -126,13 +121,11 @@ const UrlWrap = styled.div`
 `;
 const UrlLabel = styled.span`
   flex: 2;
-  width: 100%;
   font-size: 14px;
   color: #555;
 `;
 const Input = styled.input`
   flex: 8;
-  width: 100%;
   padding: 8px;
   border-radius: 8px;
   border: 1px solid #ddd;
@@ -182,6 +175,7 @@ const UploadButton = styled.button`
   }
 `;
 const ListWrap = styled.div`
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -250,50 +244,7 @@ const FinishButton = styled.button`
   }
 `;
 const RightWrapper = styled.div`
-  width: 100%;
-  flex: 1;
-  padding: 1.5em;
-`;
-const ChatWrap = styled.div`
+  flex: 1 1 0;
+  min-width: 0;
   padding: 10px;
-`;
-const TextBox = styled.div`
-  width: 100%;
-  height: 500px;
-  border: 2px solid var(--strawberry-color);
-  border-radius: 10px;
-  margin-bottom: 5px;
-`;
-const SendBox = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-`;
-const InputArea = styled.textarea`
-  flex: 9;
-  width: 100%;
-  border: 2px solid var(--strawberry-color);
-  border-radius: 10px;
-
-  &:focus {
-    outline: none;
-    border-color: var(--strawberry-color);
-  }
-`;
-const Button = styled.button`
-  flex: 1;
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  background-color: var(--strawberry-color);
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-
-  &:hover {
-    opacity: 0.9;
-  }
 `;

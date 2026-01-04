@@ -4,7 +4,7 @@ function Footer() {
   return (
     <footer className="footer">
       <div className="container">
-        © 2025 Strawberry AI. All rights reserved.
+        © 2026 Strawberry AI. All rights reserved.
       </div>
     </footer>
   );
