@@ -42,6 +42,7 @@ const HeaderWrapper = styled.div`
   height: 80px;
   display: flex;
   justify-content: space-between;
+  background-color: #fff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 `;
 const NavWrap = styled.div`
