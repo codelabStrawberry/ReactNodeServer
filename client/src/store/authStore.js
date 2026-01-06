@@ -8,18 +8,23 @@ export const useAuthStore = create((set) => ({
   loading: false,
   error: null,
 
+  hasCheckedAuth: false,
+
   // (선택) 앱 시작 시 로그인 상태 확인용
   // 현재 백엔드 /users/me 는 "message"만 반환 → user를 세팅하면 오히려 깨짐
   me: async () => {
     try {
-      const res = await axios.get(`${API_URL}/users/me`, { withCredentials: true });
+      const res = await axios.get(`${API_URL}/users/me`, {
+        withCredentials: true,
+      });
 
-      // 백엔드에서 실제 사용자 객체를 주는 경우에만 아래를 사용
-      // set({ user: res.data.user ?? res.data, error: null });
+      // ✅ user 형태만 인정 (없으면 null)
+      const user = res.data?.user ?? null;
 
-      return { success: true, data: res.data };
+      set({ user, hasCheckedAuth: true, error: null });
+      return { success: !!user, data: res.data };
     } catch (e) {
-      set({ user: null });
+      set({ user: null, hasCheckedAuth: true });
       return { success: false };
     }
   },
@@ -34,7 +39,12 @@ export const useAuthStore = create((set) => ({
       );
 
       // ★ 핵심 수정: 응답에서 user만 꺼내서 저장
-      set({ user: res.data.user, loading: false, error: null });
+      set({
+        user: res.data.user,
+        loading: false,
+        error: null,
+        hasCheckedAuth: true,
+      });
       return { success: true };
     } catch (e) {
       // ★ 백엔드는 error 키를 내려줌: { error: "..." }

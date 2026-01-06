@@ -1,4 +1,3 @@
-import React from "react";
 import RequireAuth from "./components/RequireAuth";
 import { Routes, Route } from "react-router-dom";
 import styled from "@emotion/styled";
@@ -11,9 +10,30 @@ import ResumePage from "./components/ResumePage";
 import QuestionPage from "./components/QuestionPage";
 import CustomPage from "./components/CustomPage";
 import ChatPage from "./components/ChatPage";
+import { useAuthStore } from "./store/authStore";
+import { useEffect } from "react";
+
 import "./App.css";
 
 function App() {
+  const me = useAuthStore((s) => s.me);
+  const hasCheckedAuth = useAuthStore((s) => s.hasCheckedAuth);
+
+  useEffect(() => {
+    me();
+  }, [me]);
+
+  // ✅ 세션 확인 전엔 라우트 자체를 렌더하지 않음
+  if (!hasCheckedAuth) {
+    return (
+      <div className="App">
+        <Header />
+        <div style={{ padding: "2rem", textAlign: "center" }}>Loading...</div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="App">
       <Header />

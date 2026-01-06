@@ -4,18 +4,16 @@ import { useAuthStore } from "../store/authStore";
 
 export default function RequireAuth({ children }) {
   const user = useAuthStore((s) => s.user);
+  const hasCheckedAuth = useAuthStore((s) => s.hasCheckedAuth);
   const location = useLocation();
 
-  useEffect(() => {
-    if (!user) {
-      alert("로그인이 필요한 서비스입니다.");
-    }
-  }, [user]);
+  if (!hasCheckedAuth) return null;
 
-  // 로그인 안됐으면 메인으로 이동
-  if (!user) {
-    return <Navigate to="/" replace state={{ from: location }} />;
-  }
+  useEffect(() => {
+    if (hasCheckedAuth && !user) alert("로그인이 필요한 서비스입니다.");
+  }, [hasCheckedAuth, user]);
+
+  if (!user) return <Navigate to="/" replace state={{ from: location }} />;
 
   return children;
 }
