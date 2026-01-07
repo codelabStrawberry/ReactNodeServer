@@ -36,6 +36,7 @@ CREATE TABLE `job_categories` (
 
 LOCK TABLES `job_categories` WRITE;
 /*!40000 ALTER TABLE `job_categories` DISABLE KEYS */;
+INSERT INTO `job_categories` VALUES ('10','서비스','서비스'),('11','생산','생산'),('12','상품기획·MD','상품기획·MD'),('13','미디어·문화·스포츠','미디어·문화·스포츠'),('14','마케팅·홍보·조사','마케팅·홍보·조사'),('15','디자인','디자인'),('16','기획·전략','기획·전략'),('17','금융·보험','금융·보험'),('18','구매·자재·물류','구매·자재·물류'),('19','교육','교육'),('2','IT개발·데이터','IT개발·데이터'),('20','공공·복지','공공·복지'),('21','고객상담·TM','고객상담·TM'),('22','건설·건축','건설·건축'),('3','회계·세무·재무','회계·세무·재무'),('4','총무·법무·사무','총무·법무·사무'),('5','인사·노무·HRD','인사·노무·HRD'),('6','의료','의료'),('7','운전·운송·배송','운전·운송·배송'),('8','영업·판매·무역','영업·판매·무역'),('9','연구·R&D','연구·R&D');
 /*!40000 ALTER TABLE `job_categories` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -48,4 +49,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-01-07 12:18:47
+-- Dump completed on 2026-01-07 14:22:55
