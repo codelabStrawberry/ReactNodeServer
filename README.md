@@ -88,10 +88,12 @@ VITE_AI_URL=/ai
 ### 📁 Node 서버 환경 변수 (`server/.env`)
 
 ```env
-MYSQL_HOST=mysql
+# MYSQL_HOST=localhost
+MYSQL_HOST=host.docker.internal
+MYSQL_PORT=3307
 MYSQL_USER=root
-MYSQL_PASSWORD=pass
-MYSQL_DB=test
+MYSQL_PASSWORD=1234
+MYSQL_DB=board_db
 
 REDIS_HOST=redis
 SERVER_PORT=3000
@@ -178,7 +180,15 @@ docker compose up -d --build
 ## 🔐 GitHub Actions 자동 배포
 
 * `main` 브랜치 push 시 자동 배포
-* 서버에서 `docker compose up -d --build` 실행
+docker build -t vawing21/node ./server
+docker build -t vawing21/nginx ./client
+docker push vawing21/node
+docker push vawing21/nginx
+
+* 
+docker pull vawing21/node
+docker pull vawing21/nginx
+docker-compose up -d --pull always
 
 필요 Secrets:
 
