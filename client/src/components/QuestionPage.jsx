@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import styled from "@emotion/styled"
 
 export default function QuestionPage() {
   // DB에서 받아올 직무 카테고리 목록
-  // const [jobOptions, setJobOptions] = useState([])
-  // const [jobLoading, setJobLoading] = useState(false)
-  // const [jobError, setJobError] = useState("")
+  const [jobOptions, setJobOptions] = useState([])
+  const [jobLoading, setJobLoading] = useState(false)
+  const [jobError, setJobError] = useState("")
 
   // 직무 역할 선택
   const [job, setJob] = useState("")
@@ -16,31 +16,31 @@ export default function QuestionPage() {
   // 자기소개서 텍스트 입력
   const [resume, setResume] = useState("")
 
-  // useEffect(() => {
-  //   const fetchJobs = async () => {
-  //     try {
-  //       setJobLoading(true)
-  //       setJobError("")
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setJobLoading(true)
+        setJobError("")
 
-  //       // TODO: 백엔드 주소에 맞게 수정
-  //       // 예: http://localhost:8000/api/jobs
-  //       const res = await fetch("/api/jobs", { method: "GET" })
+        // TODO: 백엔드 주소에 맞게 수정
+        // 예: http://localhost:8000/api/job-categories
+        const res = await fetch("http://localhost:3000/job-categories")
 
-  //       if (!res.ok) throw new Error("직무 목록을 불러오지 못했습니다.")
-  //       const data = await res.json()
+        if (!res.ok) throw new Error("직무 목록을 불러오지 못했습니다.")
+        const data = await res.json()
 
-  //       // data: [{id, code, name}, ...] 기대
-  //       setJobOptions(Array.isArray(data) ? data : [])
-  //     } catch (e) {
-  //       setJobError(e.message || "직무 목록 로딩 실패")
-  //       setJobOptions([])
-  //     } finally {
-  //       setJobLoading(false)
-  //     }
-  //   }
+        // data: [{id, code, name}, ...] 기대
+        setJobOptions(Array.isArray(data) ? data : [])
+      } catch (e) {
+        setJobError(e.message || "직무 목록 로딩 실패")
+        setJobOptions([])
+      } finally {
+        setJobLoading(false)
+      }
+    }
 
-  //   fetchJobs()
-  // }, [])
+    fetchJobs()
+  }, [])
 
   return (
     <Page>
@@ -56,7 +56,7 @@ export default function QuestionPage() {
 
             <CardBody>
               <Hint>지원하시는 직무 역할을 선택하세요.</Hint>
-              <Select value={job} onChange={(e) => setJob(e.target.value)}>
+              {/* <Select value={job} onChange={(e) => setJob(e.target.value)}>
                 <option value="">선택하세요</option>
                 <option value="">기획·전략</option>
                 <option value="">마케팅·홍보·조사</option>
@@ -79,8 +79,8 @@ export default function QuestionPage() {
                 <option value="">미디어·문화·스포츠</option>
                 <option value="">금융·보험</option>
                 <option value="">공공·복지</option>
-              </Select>
-              {/* <Select
+              </Select> */}
+              <Select
                 value={job}
                 onChange={(e) => setJob(e.target.value)}
                 disabled={jobLoading}
@@ -90,13 +90,13 @@ export default function QuestionPage() {
                 </option>
 
                 {jobOptions.map((opt) => (
-                  <option key={opt.id ?? opt.code} value={opt.code}>
-                    {opt.name}
+                  <option key={String(opt.jc_code)} value={opt.jc_code}>
+                    {opt.jc_name}
                   </option>
                 ))}
               </Select>
 
-              {jobError && <ErrorText>{jobError}</ErrorText>} */}
+              {jobError && <ErrorText>{jobError}</ErrorText>}
             </CardBody>
           </Card>
 
@@ -174,11 +174,11 @@ export default function QuestionPage() {
   )
 }
 
-// const ErrorText = styled.p`
-//   margin: 8px 0 0;
-//   font-size: 12px;
-//   color: #d63b52;
-// `
+const ErrorText = styled.p`
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #d63b52;
+`
 
 /* ---------------- styles ---------------- */
 
