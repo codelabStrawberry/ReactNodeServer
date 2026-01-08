@@ -148,6 +148,7 @@ export default function QuestionPage() {
               />
               <BottomRow>
                 <Count>{resume.length} / 4000</Count>
+                <UploadButton type="button">업로드</UploadButton>
                 <PrimaryButton type="button">분석 시작</PrimaryButton>
               </BottomRow>
             </CardBody>
@@ -326,7 +327,6 @@ const Textarea = styled.textarea`
 const BottomRow = styled.div`
   margin-top: 12px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
 `
@@ -345,6 +345,22 @@ const PrimaryButton = styled.button`
   cursor: pointer;
   font-size: 13px;
   font-weight: 800;
+
+  &:hover {
+    opacity: 0.92;
+  }
+`
+
+const UploadButton = styled.button`
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: var(--strawberry-color);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  margin-left: auto;
 
   &:hover {
     opacity: 0.92;
