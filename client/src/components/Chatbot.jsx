@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import axios from "axios";
 
-export default function ChatUI() {
+export default function Chatbot({ startPayload, sessionId, disabled }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]); // { id, role: 'user'|'assistant', text }
   const chatBoxRef = useRef(null);
-  const sessionId = "default";
+
+  const systemPrompt = startPayload?.systemPrompt;
+  console.log(systemPrompt);
 
   const scrollToBottom = () => {
     const el = chatBoxRef.current;
@@ -19,14 +21,14 @@ export default function ChatUI() {
   }, [messages]);
 
   useEffect(() => {
+    if (!sessionId) return;
+
     (async () => {
       try {
         const res = await axios.get(
-          `http://localhost:8000/chat-list/${sessionId}`
+          `${import.meta.env.VITE_AI_URL}/chat-list/${sessionId}`
         );
         const list = res.data?.list ?? [];
-
-        // 서버 형식: {role, content} -> 프론트 형식: {id, role, text}
         setMessages(
           list.map((m) => ({
             id: crypto.randomUUID(),
@@ -36,11 +38,27 @@ export default function ChatUI() {
         );
       } catch (e) {
         console.error(e);
+        setMessages([]);
       }
     })();
-  }, []);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!startPayload) return;
+    setMessages((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: "준비 완료! 첫 질문부터 시작할게요. 지원 동기를 간단히 말해 주세요.",
+        },
+      ];
+    });
+  }, [startPayload]);
 
   const sendMessage = async () => {
+    if (disabled) return;
     const text = input.trim();
     if (!text) return;
 
@@ -58,9 +76,10 @@ export default function ChatUI() {
 
     try {
       // 2) FastAPI /chat 호출
-      const res = await axios.post("http://localhost:8000/chat", {
+      const res = await axios.post(`${import.meta.env.VITE_AI_URL}/chat`, {
         session_id: sessionId,
         message: text,
+        system_prompt: systemPrompt,
       });
 
       const reply = res.data?.response ?? "";
@@ -121,9 +140,12 @@ export default function ChatUI() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="메시지를 입력하세요."
+          placeholder={
+            disabled ? "먼저 면접 시작을 눌러 주세요." : "메시지를 입력하세요."
+          }
+          disabled={disabled}
         />
-        <SendButton type="button" onClick={sendMessage}>
+        <SendButton type="button" onClick={sendMessage} disabled={disabled}>
           전송
         </SendButton>
       </InputRow>

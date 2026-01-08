@@ -3,13 +3,13 @@ import { Routes, Route } from "react-router-dom";
 import styled from "@emotion/styled";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-import Main from "./components/Main";
+import Main from "./page/MainPage";
 import AboutPage from "./components/AboutPage";
-import TrendPage from "./components/TrendPage";
-import ResumePage from "./components/ResumePage";
+import TrendPage from "./page/TrendPage";
+import ResumePage from "./page/ResumePage";
 import QuestionPage from "./components/QuestionPage";
 import CustomPage from "./components/CustomPage";
-import ChatPage from "./components/ChatPage";
+import ChatPage from "./page/ChatPage";
 import { useAuthStore } from "./store/authStore";
 import { useEffect } from "react";
 

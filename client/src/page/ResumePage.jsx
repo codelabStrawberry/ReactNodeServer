@@ -1,14 +1,47 @@
 import styled from "@emotion/styled";
 import { useRef, useState } from "react";
+import axios from "axios";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+const SARAMIN_CATEGORIES = {
+  16: "기획·전략",
+  14: "마케팅·홍보·조사",
+  3: "회계·세무·재무",
+  5: "인사·노무·HRD",
+  4: "총무·법무·사무",
+  2: "IT개발·데이터",
+  15: "디자인",
+  8: "영업·판매·무역",
+  21: "고객상담·TM",
+  18: "구매·자재·물류",
+  12: "상품기획·MD",
+  7: "운전·운송·배송",
+  10: "서비스",
+  11: "생산",
+  22: "건설·건축",
+  6: "의료",
+  9: "연구·R&D",
+  19: "교육",
+  13: "미디어·문화·스포츠",
+  17: "금융·보험",
+  20: "공공·복지",
+};
 
 export default function ResumePage() {
   const fileInputRef1 = useRef(null);
-  const fileInputRef2 = useRef(null);
 
   const [fileName1, setFileName1] = useState("");
-  const [fileName2, setFileName2] = useState("");
 
+  const [job, setJob] = useState("");
   const [url, setUrl] = useState("");
+
+  const [coverLetterFile, setCoverLetterFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  const [categoryKey, setCategoryKey] = useState("");
+  const [categoryText, setCategoryText] = useState("");
+  const [analysisResult, setAnalysisResult] = useState("");
 
   const handleResumeChange = (e) => {
     const file = e.target.files[0];
@@ -20,23 +53,48 @@ export default function ResumePage() {
       return;
     }
 
+    setCoverLetterFile(file);
     setFileName1(file.name);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleCoverLetterChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleCategoryChange = (e) => {
+    const key = e.target.value;
+    setCategoryKey(key);
+    setCategoryText(SARAMIN_CATEGORIES[key] || "");
+  };
 
-    if (file.type !== "application/pdf") {
-      alert("PDF 파일만 첨부할 수 있습니다.");
-      e.target.value = "";
+  /** 서버 전송 */
+  const handleSubmit = async () => {
+    if (!categoryKey || !coverLetterFile) {
+      alert("직무와 자기소개서를 모두 입력해주세요.");
       return;
     }
 
-    setFileName2(file.name);
-  };
+    const formData = new FormData();
+    formData.append("job", categoryKey);
+    formData.append("url", url);
+    formData.append("coverLetter", coverLetterFile);
 
-  const [job, setJob] = useState("");
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_AI_URL}/jobfit`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      console.log("분석 결과:", res.data.response.answer);
+      // ⭐ 핵심
+      setAnalysisResult(res.data.response.answer);
+    } catch (err) {
+      console.error(err);
+      alert("서버 전송 실패");
+    }
+  };
 
   return (
     <Container>
@@ -59,7 +117,7 @@ export default function ResumePage() {
               />
 
               <FileLabel hasFile={!!fileName1}>
-                {fileName1 || "이력서 업로드"}
+                {fileName1 || "자기소개서 업로드"}
               </FileLabel>
               <UploadButton
                 type="button"
@@ -67,29 +125,15 @@ export default function ResumePage() {
               >
                 파일 선택
               </UploadButton>
-              <FileInput
-                type="file"
-                accept=".pdf,application/pdf"
-                ref={fileInputRef2}
-                onChange={handleCoverLetterChange}
-              />
-
-              <FileLabel hasFile={!!fileName2}>
-                {fileName2 || "자기소개서 업로드"}
-              </FileLabel>
-              <UploadButton
-                type="button"
-                onClick={() => fileInputRef2.current.click()}
-              >
-                파일 선택
-              </UploadButton>
               <ListWrap>
                 <ListLabel>직무 역할 선택</ListLabel>
-                <Select value={job} onChange={(e) => setJob(e.target.value)}>
+                <Select value={categoryKey} onChange={handleCategoryChange}>
                   <option value="">선택하세요</option>
-                  <option value="weak">111</option>
-                  <option value="normal">222</option>
-                  <option value="strong">333</option>
+                  {Object.entries(SARAMIN_CATEGORIES).map(([key, text]) => (
+                    <option key={key} value={key}>
+                      {text}
+                    </option>
+                  ))}
                 </Select>
               </ListWrap>
             </InputBox>
@@ -99,20 +143,30 @@ export default function ResumePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
-            <SubmitButton>분석하기</SubmitButton>
+            <SubmitButton onClick={handleSubmit}>분석하기</SubmitButton>
           </FormBox>
         </FormWrap>
       </InputWrapper>
-      <ThumbWrapper>
-        <ThumbLeft></ThumbLeft>
-        <ThumbRight></ThumbRight>
-      </ThumbWrapper>
-      <FeedbackWrapper>
-        <FeedTitle>
-          종합 피드백 <Highlight>요약</Highlight>
-        </FeedTitle>
-        <FeedContent></FeedContent>
-      </FeedbackWrapper>
+      {/* PDF 미리보기 */}
+      {previewUrl && (
+        <PreviewWrapper>
+          <PreviewTitle>자기소개서 미리보기</PreviewTitle>
+          <PreviewFrame src={previewUrl} />
+        </PreviewWrapper>
+      )}
+      {/* 종합 피드백 */}
+      {analysisResult && (
+        <FeedbackWrapper>
+          <FeedTitle>
+            종합 피드백 <Highlight>요약</Highlight>
+          </FeedTitle>
+          <FeedContent>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {analysisResult}
+            </ReactMarkdown>
+          </FeedContent>
+        </FeedbackWrapper>
+      )}
     </Container>
   );
 }
@@ -282,4 +336,51 @@ const FeedTitle = styled.h2`
     margin-top: 6px; /* 글자와 간격 */
   }
 `;
-const FeedContent = styled.div``;
+
+const PreviewWrapper = styled.div`
+  margin: 50px 120px;
+`;
+
+const PreviewTitle = styled.h2`
+  margin-bottom: 10px;
+`;
+
+const PreviewFrame = styled.iframe`
+  width: 100%;
+  height: 600px;
+  border: 2px solid var(--strawberry-color);
+  border-radius: 12px;
+`;
+
+const FeedContent = styled.div`
+  margin-top: 20px;
+  line-height: 1.8;
+  font-size: 15px;
+  color: #333;
+
+  h1,
+  h2,
+  h3 {
+    margin-top: 24px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  strong {
+    color: var(--strawberry-color);
+    font-weight: 600;
+  }
+
+  ul {
+    padding-left: 20px;
+    margin: 10px 0;
+  }
+
+  li {
+    margin-bottom: 6px;
+  }
+
+  p {
+    margin-bottom: 10px;
+  }
+`;

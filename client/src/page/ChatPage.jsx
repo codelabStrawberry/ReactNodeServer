@@ -1,6 +1,7 @@
 import styled from "@emotion/styled";
 import { useRef, useState } from "react";
-import Chatbot from "./Chatbot";
+import Chatbot from "../components/Chatbot";
+import { startInterview } from "../api/chat";
 
 export default function ChatPage() {
   // url 등록
@@ -9,22 +10,68 @@ export default function ChatPage() {
   // 파일 업로드
   const fileInputRef = useRef(null);
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  // 서버에서 받은 결과(프롬프트 포함)
+  const [startPayload, setStartPayload] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
 
   const handleChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.type !== "application/pdf") {
       alert("PDF 파일만 첨부할 수 있습니다.");
       e.target.value = "";
       setFileName("");
+      setSelectedFile(null);
       return;
     }
+
     setFileName(file.name);
+    setSelectedFile(file);
   };
 
-  // 압박 강도
-  const [level, setLevel] = useState("");
+  const handleStart = async () => {
+    if (!url || !selectedFile) {
+      alert("URL과 PDF 파일을 모두 입력해주세요.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const newSessionId = crypto.randomUUID();
+      setSessionId(newSessionId);
+
+      const data = await startInterview({
+        url,
+        file: selectedFile,
+        sessionId: newSessionId,
+      });
+
+      // 서버가 sessionId를 다시 내려주면 그걸 최종으로 사용(백엔드가 생성하는 구조로 바꿀 수도 있어서)
+      if (data?.sessionId) setSessionId(data.sessionId);
+
+      setStartPayload(data);
+    } catch (e) {
+      console.error(e);
+      alert("면접 시작 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFinish = () => {
+    setStartPayload(null);
+    setUrl("");
+    setFileName("");
+    setSessionId(crypto.randomUUID());
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   return (
     <Container>
@@ -33,7 +80,8 @@ export default function ChatPage() {
           <Title>
             <Highlight>AI</Highlight> 가상면접
           </Title>
-          <Form>
+
+          <Form onSubmit={(e) => e.preventDefault()}>
             <UrlWrap>
               <UrlLabel>URL 입력</UrlLabel>
               <Input
@@ -41,45 +89,60 @@ export default function ChatPage() {
                 placeholder="채용공고 URL을 입력하세요."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                disabled={isLoading}
               />
             </UrlWrap>
+
             <FileWrap>
               <FileInput
                 type="file"
                 accept=".pdf,application/pdf"
                 ref={fileInputRef}
                 onChange={handleChange}
+                disabled={isLoading}
               />
+
               <FileLabel hasFile={!!fileName}>
-                {fileName
-                  ? fileName
-                  : "이력서와 자기소개서를 하나의 PDF 파일로 첨부"}
+                {fileName ? fileName : "자기소개서를 PDF 파일로 첨부"}
               </FileLabel>
+
               <UploadButton
                 type="button"
-                onClick={() => fileInputRef.current.click()}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
               >
                 파일 선택
               </UploadButton>
             </FileWrap>
-            <ListWrap>
-              <ListLabel>면접 강도</ListLabel>
-              <Select value={level} onChange={(e) => setLevel(e.target.value)}>
-                <option value="">선택하세요</option>
-                <option value="weak">약하게</option>
-                <option value="normal">보통</option>
-                <option value="strong">강하게</option>
-              </Select>
-            </ListWrap>
+
             <BtnWrap>
-              <StartButton>면접 시작</StartButton>
-              <FinishButton>면접 종료</FinishButton>
+              <StartButton
+                type="button"
+                onClick={handleStart}
+                disabled={isLoading}
+              >
+                {isLoading ? "준비 중..." : "면접 시작"}
+              </StartButton>
+
+              <FinishButton
+                type="button"
+                onClick={handleFinish}
+                disabled={isLoading}
+              >
+                면접 종료
+              </FinishButton>
             </BtnWrap>
           </Form>
         </LeftWrap>
       </LeftWrapper>
+
       <RightWrapper>
-        <Chatbot />
+        {/* ✅ Chatbot이 prompt/jobText/resumeText를 사용 가능 */}
+        <Chatbot
+          startPayload={startPayload}
+          sessionId={sessionId}
+          disabled={!startPayload || isLoading}
+        />
       </RightWrapper>
     </Container>
   );
@@ -143,13 +206,7 @@ const FileWrap = styled.div`
   gap: 10px;
   margin-bottom: 5px;
 `;
-
 const FileInput = styled.input`
-  flex: 0;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 14px;
   display: none;
 `;
 const FileLabel = styled.span`
@@ -173,43 +230,16 @@ const UploadButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
-`;
-const ListWrap = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 50px;
-`;
-
-const ListLabel = styled.label`
-  flex: 2;
-  width: 100%;
-  font-size: 14px;
-  color: #555;
-`;
-
-const Select = styled.select`
-  flex: 8;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-  color: #555;
-  background-color: white;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: var(--strawberry-color);
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 `;
 const BtnWrap = styled.div`
   display: flex;
   justify-content: center;
   gap: 2em;
+  margin-top: 3em;
 `;
 const StartButton = styled.button`
   width: 100%;
@@ -226,22 +256,13 @@ const StartButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
-`;
-const FinishButton = styled.button`
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  background-color: var(--strawberry-color);
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-
-  &:hover {
-    opacity: 0.9;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
+`;
+const FinishButton = styled(StartButton)`
+  background-color: var(--strawberry-color);
 `;
 const RightWrapper = styled.div`
   flex: 1 1 0;
