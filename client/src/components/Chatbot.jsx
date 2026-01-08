@@ -8,7 +8,6 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
   const chatBoxRef = useRef(null);
 
   const systemPrompt = startPayload?.systemPrompt;
-  console.log(systemPrompt);
 
   const scrollToBottom = () => {
     const el = chatBoxRef.current;
@@ -51,7 +50,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: "준비 완료! 첫 질문부터 시작할게요. 지원 동기를 간단히 말해 주세요.",
+          text: "<면접 준비 완료> 준비가 되셨으면 '준비완료'라고 메시지를 보내주세요.",
         },
       ];
     });
