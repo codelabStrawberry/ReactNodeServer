@@ -4,15 +4,12 @@ import Chatbot from "../components/Chatbot";
 import { startInterview } from "../api/chat";
 
 export default function ChatPage() {
-  // url 등록
   const [url, setUrl] = useState("");
 
-  // 파일 업로드
   const fileInputRef = useRef(null);
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 서버에서 받은 결과(프롬프트 포함)
   const [startPayload, setStartPayload] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -51,8 +48,6 @@ export default function ChatPage() {
         file: selectedFile,
         sessionId: newSessionId,
       });
-
-      // 서버가 sessionId를 다시 내려주면 그걸 최종으로 사용(백엔드가 생성하는 구조로 바꿀 수도 있어서)
       if (data?.sessionId) setSessionId(data.sessionId);
 
       setStartPayload(data);
@@ -64,7 +59,19 @@ export default function ChatPage() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (sessionId) {
+      try {
+        await fetch(`${import.meta.env.VITE_AI_URL}/chat/finish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+      } catch (e) {
+        console.warn("세션 종료 실패", e);
+      }
+    }
+
     setStartPayload(null);
     setUrl("");
     setFileName("");

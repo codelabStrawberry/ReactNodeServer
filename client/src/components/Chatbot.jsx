@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
-import axios from "axios";
+import { sendInterviewMessage } from "../api/chat";
 
 export default function Chatbot({ startPayload, sessionId, disabled }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]); // { id, role: 'user'|'assistant', text }
+  const [messages, setMessages] = useState([]); // { id, role: 'user'|'assistant', text, typing? }
   const chatBoxRef = useRef(null);
-
-  const systemPrompt = startPayload?.systemPrompt;
-
+  // console.log(startPayload);
   const scrollToBottom = () => {
     const el = chatBoxRef.current;
     if (!el) return;
@@ -19,38 +17,21 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (!sessionId) return;
-
-    (async () => {
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_AI_URL}/chat-list/${sessionId}`
-        );
-        const list = res.data?.list ?? [];
-        setMessages(
-          list.map((m) => ({
-            id: crypto.randomUUID(),
-            role: m.role === "assistant" ? "assistant" : "user",
-            text: m.content,
-          }))
-        );
-      } catch (e) {
-        console.error(e);
-        setMessages([]);
-      }
-    })();
-  }, [sessionId]);
-
+  // ✅ startPayload 도착 시 최초 안내 메시지 1회 삽입
   useEffect(() => {
     if (!startPayload) return;
+
+    const readyText =
+      startPayload?.readyMessage ||
+      "<면접 준비 완료> 준비가 되셨으면 '시작하기(프론트)'라고 메시지를 보내주세요.";
+
     setMessages((prev) => {
       if (prev.length > 0) return prev;
       return [
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: "<면접 준비 완료> 준비가 되셨으면 '준비완료'라고 메시지를 보내주세요.",
+          text: readyText,
         },
       ];
     });
@@ -58,13 +39,27 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
 
   const sendMessage = async () => {
     if (disabled) return;
+
     const text = input.trim();
     if (!text) return;
+
+    if (!sessionId) {
+      // 세션이 없으면 전송 불가 (start 먼저 필요)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: "세션이 없어요. 먼저 '채팅 시작'을 눌러주세요.",
+        },
+      ]);
+      return;
+    }
 
     const userMsgId = crypto.randomUUID();
     const typingId = crypto.randomUUID();
 
-    // 1) UI에 user + typing 먼저 표시 (여기서만 추가)
+    // 1) UI에 user + typing 먼저 표시
     setMessages((prev) => [
       ...prev,
       { id: userMsgId, role: "user", text },
@@ -74,19 +69,21 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     setInput("");
 
     try {
-      // 2) FastAPI /chat 호출
-      const res = await axios.post(`${import.meta.env.VITE_AI_URL}/chat`, {
-        session_id: sessionId,
-        message: text,
-        system_prompt: systemPrompt,
-      });
-
-      const reply = res.data?.response ?? "";
+      // ✅ 새 엔드포인트: POST /chat/message
+      const data = await sendInterviewMessage({ sessionId, message: text });
+      console.log(data);
+      const reply = (data?.answer ?? "").trim();
 
       // 3) typing bubble을 실제 답변으로 교체
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === typingId ? { ...m, text: reply, typing: false } : m
+          m.id === typingId
+            ? {
+                ...m,
+                text: reply || "답변이 비어있어요. 다시 보내주세요.",
+                typing: false,
+              }
+            : m
         )
       );
     } catch (err) {
