@@ -12,6 +12,7 @@ export default function QuestionPage() {
 
   // 채용 공고 URL 입력
   const [url, setUrl] = useState("")
+  const [urlError, setUrlError] = useState("")
 
   // 자기소개서 텍스트 입력
   const [resume, setResume] = useState("")
@@ -90,14 +91,51 @@ export default function QuestionPage() {
     }
   }
 
+  // 채용공고 URL 형식 체크 (http/https만 허용)
+  const isValidHttpUrl = (value) => {
+    const v = (value || "").trim()
+    if (!v) return false
+    try {
+      const u = new URL(v)
+      return u.protocol === "http:" || u.protocol === "https:"
+    } catch {
+      return false
+    }
+  }
+
+  const canAnalyze =
+    !!job &&
+    resume.trim().length >= 200 &&
+    resume.trim().length <= 4000 &&
+    isValidHttpUrl(url)
+
+  const handleUrlChange = (e) => {
+    setUrl(e.target.value)
+    if (urlError) setUrlError("")
+    if (actionError) setActionError("")
+  }
+
   // 분석 시작 버튼 클릭 핸들러 ()
   const handleAnalyze = async () => {
     try {
       setActionError("")
+      setUrlError("")
       setFeedback("")
 
       // validation
       if (!job) return setActionError("직무 역할을 선택해주세요")
+
+      const urlText = (url || "").trim()
+
+      if (!urlText) {
+        setUrlError("채용공고 URL을 입력해주세요")
+        return
+      }
+      if (!isValidHttpUrl(urlText)) {
+        setActionError("채용공고 URL 형식이 올바르지 않습니다.")
+        return
+      }
+
       const text = resume.trim()
       if (text.length < 200)
         return setActionError("자기소개서는 최소 200자 이상 입력해주세요.")
@@ -118,10 +156,11 @@ export default function QuestionPage() {
         body: JSON.stringify({
           jc_code: job,
           job_name: jobName,
-          url: url || null,
+          url: urlText,
           resume_text: text,
         }),
       })
+
       const data = await res.json().catch(() => ({}))
       if (!res.ok)
         return setActionError(data?.detail || data?.error || "분석 실패")
@@ -208,9 +247,11 @@ export default function QuestionPage() {
                   type="url"
                   placeholder="채용공고 URL"
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={handleUrlChange}
                 />
               </InputWrap>
+
+              {urlError && <ErrorText>{urlError}</ErrorText>}
             </CardBody>
           </Card>
         </Side>
@@ -254,6 +295,11 @@ export default function QuestionPage() {
                   type="button"
                   onClick={handleAnalyze}
                   disabled={analysisLoading}
+                  title={
+                    !canAnalyze
+                      ? "직무 선택, 채용공고 URL, 자기소개서(200~4000자)를 모두 입력해주세요."
+                      : ""
+                  }
                 >
                   {analysisLoading ? "분석 중..." : "분석 시작"}
                 </PrimaryButton>
