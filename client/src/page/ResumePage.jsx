@@ -4,6 +4,8 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { createPortal } from "react-dom";
+
 const SARAMIN_CATEGORIES = {
   16: "기획·전략",
   14: "마케팅·홍보·조사",
@@ -28,6 +30,60 @@ const SARAMIN_CATEGORIES = {
   20: "공공·복지",
 };
 
+function LoadingOverlay({ isLoading }) {
+  if (!isLoading) return null;
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "rgba(0,0,0,0.5)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 99999, // iframe 위로
+      }}
+    >
+      <div
+        style={{
+          padding: "24px",
+          backgroundColor: "white",
+          borderRadius: "12px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            width: "48px",
+            height: "48px",
+            border: "4px solid #3b82f6",
+            borderTopColor: "transparent",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+          }}
+        />
+        <p style={{ fontSize: "16px", fontWeight: "500" }}>
+          분석 중입니다. 잠시만 기다려주세요...
+        </p>
+      </div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>,
+    document.body
+  );
+}
+
 export default function ResumePage() {
   const fileInputRef1 = useRef(null);
 
@@ -42,6 +98,8 @@ export default function ResumePage() {
   const [categoryKey, setCategoryKey] = useState("");
   const [categoryText, setCategoryText] = useState("");
   const [analysisResult, setAnalysisResult] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleResumeChange = (e) => {
     const file = e.target.files[0];
@@ -76,6 +134,11 @@ export default function ResumePage() {
     formData.append("url", url);
     formData.append("coverLetter", coverLetterFile);
 
+    setIsLoading(true);
+
+    // 잠깐 렌더링 기회를 주기 위해 Promise.resolve().then(...) 활용
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
       const res = await axios.post(
         `${import.meta.env.VITE_AI_URL}/jobfit`,
@@ -93,81 +156,86 @@ export default function ResumePage() {
     } catch (err) {
       console.error(err);
       alert("서버 전송 실패");
+    } finally {
+      setIsLoading(false); // 🔹 로딩 종료
     }
   };
 
   return (
-    <Container>
-      <InputWrapper>
-        <Title>
-          이력서 & 자기소개서 <Highlight>첨삭 서비스</Highlight>
-        </Title>
-        <Content>
-          지원하는 채용 공고를 기반으로 이력서와 자기소개서의 강점과 약점을
-          정확하게 분석하여, 합격률을 높이는 맞춤형 피드백을 제공합니다.
-        </Content>
-        <FormWrap>
-          <FormBox>
-            <InputBox>
-              <FileInput
-                type="file"
-                accept=".pdf,application/pdf"
-                ref={fileInputRef1}
-                onChange={handleResumeChange}
-              />
+    <>
+      <Container>
+        <InputWrapper>
+          <Title>
+            이력서 & 자기소개서 <Highlight>첨삭 서비스</Highlight>
+          </Title>
+          <Content>
+            지원하는 채용 공고를 기반으로 자기소개서의 강점과 약점을 정확하게
+            분석하여, 합격률을 높이는 맞춤형 피드백을 제공합니다.
+          </Content>
+          <FormWrap>
+            <FormBox>
+              <InputBox>
+                <FileInput
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  ref={fileInputRef1}
+                  onChange={handleResumeChange}
+                />
 
-              <FileLabel hasFile={!!fileName1}>
-                {fileName1 || "자기소개서 업로드"}
-              </FileLabel>
-              <UploadButton
-                type="button"
-                onClick={() => fileInputRef1.current.click()}
-              >
-                파일 선택
-              </UploadButton>
-              <ListWrap>
-                <ListLabel>직무 역할 선택</ListLabel>
-                <Select value={categoryKey} onChange={handleCategoryChange}>
-                  <option value="">선택하세요</option>
-                  {Object.entries(SARAMIN_CATEGORIES).map(([key, text]) => (
-                    <option key={key} value={key}>
-                      {text}
-                    </option>
-                  ))}
-                </Select>
-              </ListWrap>
-            </InputBox>
-            <Input
-              type="url"
-              placeholder="채용공고 URL을 입력하세요."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <SubmitButton onClick={handleSubmit}>분석하기</SubmitButton>
-          </FormBox>
-        </FormWrap>
-      </InputWrapper>
-      {/* PDF 미리보기 */}
-      {previewUrl && (
-        <PreviewWrapper>
-          <PreviewTitle>자기소개서 미리보기</PreviewTitle>
-          <PreviewFrame src={previewUrl} />
-        </PreviewWrapper>
-      )}
-      {/* 종합 피드백 */}
-      {analysisResult && (
-        <FeedbackWrapper>
-          <FeedTitle>
-            종합 피드백 <Highlight>요약</Highlight>
-          </FeedTitle>
-          <FeedContent>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {analysisResult}
-            </ReactMarkdown>
-          </FeedContent>
-        </FeedbackWrapper>
-      )}
-    </Container>
+                <FileLabel hasFile={!!fileName1}>
+                  {fileName1 || "자기소개서 업로드"}
+                </FileLabel>
+                <UploadButton
+                  type="button"
+                  onClick={() => fileInputRef1.current.click()}
+                >
+                  파일 선택
+                </UploadButton>
+                <ListWrap>
+                  <ListLabel>직무 역할 선택</ListLabel>
+                  <Select value={categoryKey} onChange={handleCategoryChange}>
+                    <option value="">선택하세요</option>
+                    {Object.entries(SARAMIN_CATEGORIES).map(([key, text]) => (
+                      <option key={key} value={key}>
+                        {text}
+                      </option>
+                    ))}
+                  </Select>
+                </ListWrap>
+              </InputBox>
+              <Input
+                type="url"
+                placeholder="채용공고 URL을 입력하세요."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              <SubmitButton onClick={handleSubmit}>분석하기</SubmitButton>
+            </FormBox>
+          </FormWrap>
+        </InputWrapper>
+        {/* PDF 미리보기 */}
+        {previewUrl && (
+          <PreviewWrapper>
+            <PreviewTitle>자기소개서 미리보기</PreviewTitle>
+            <PreviewFrame src={previewUrl} />
+          </PreviewWrapper>
+        )}
+        {/* 종합 피드백 */}
+        {analysisResult && (
+          <FeedbackWrapper>
+            <FeedTitle>
+              종합 피드백 <Highlight>요약</Highlight>
+            </FeedTitle>
+            <FeedContent>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {analysisResult}
+              </ReactMarkdown>
+            </FeedContent>
+          </FeedbackWrapper>
+        )}
+      </Container>
+      <LoadingOverlay isLoading={isLoading} />
+    </>
   );
 }
 
