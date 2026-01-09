@@ -16,10 +16,15 @@ export default function QuestionPage() {
   // 자기소개서 텍스트 입력
   const [resume, setResume] = useState("")
 
-  // ✅ 업로드 상태/결과
+  // 업로드 상태/결과
   const [uploadLoading, setUploadLoading] = useState(false)
   const [uploadError, setUploadError] = useState("")
   const [uploadedId, setUploadedId] = useState(null)
+
+  // 분석 시작
+  const [feedback, setFeedback] = useState("")
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [actionError, setActionError] = useState("")
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -28,8 +33,9 @@ export default function QuestionPage() {
         setJobError("")
 
         // TODO: 백엔드 주소에 맞게 수정
-        // 예: http://localhost:8000/api/job-categories
-        const res = await fetch("http://localhost:3000/job-categories")
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/job-categories`
+        )
 
         if (!res.ok) throw new Error("직무 목록을 불러오지 못했습니다.")
         const data = await res.json()
@@ -47,7 +53,7 @@ export default function QuestionPage() {
     fetchJobs()
   }, [])
 
-  // ✅ 업로드 버튼 클릭 핸들러 (job_resume 테이블 INSERT)
+  // 업로드 버튼 클릭 핸들러 (job_resume 테이블 INSERT)
   const handleUpload = async () => {
     try {
       setUploadError("")
@@ -62,7 +68,7 @@ export default function QuestionPage() {
 
       setUploadLoading(true)
 
-      const res = await fetch("http://localhost:3000/job-resumes", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/job-resumes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // 세션 쓰면 유지하는 게 안전
@@ -81,6 +87,50 @@ export default function QuestionPage() {
       setUploadError(e.message || "업로드 중 오류")
     } finally {
       setUploadLoading(false)
+    }
+  }
+
+  // 분석 시작 버튼 클릭 핸들러 ()
+  const handleAnalyze = async () => {
+    try {
+      setActionError("")
+      setFeedback("")
+
+      // validation
+      if (!job) return setActionError("직무 역할을 선택해주세요")
+      const text = resume.trim()
+      if (text.length < 200)
+        return setActionError("자기소개서는 최소 200자 이상 입력해주세요.")
+      if (text.length > 4000)
+        return setActionError("최대 4000자까지 입력 가능합니다.")
+
+      setAnalysisLoading(true)
+
+      // 직무명(선택) - jobOptions에서 찾아서 같이 보냄
+      const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
+      const jobName = selected?.jc_name || null
+
+      const res = await fetch(`${import.meta.env.VITE_AI_URL}/resume/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // 세션/쿠키 안 쓰면 credentials 없어도 됨
+        credentials: "include",
+        body: JSON.stringify({
+          jc_code: job,
+          job_name: jobName,
+          url: url || null,
+          resume_text: text,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok)
+        return setActionError(data?.detail || data?.error || "분석 실패")
+
+      setFeedback(data.feedback || "")
+    } catch (e) {
+      setActionError(e.message || "분석 중 오류가 발생했습니다.")
+    } finally {
+      setAnalysisLoading(false)
     }
   }
 
@@ -192,7 +242,7 @@ export default function QuestionPage() {
               <BottomRow>
                 <Count>{resume.length} / 4000</Count>
 
-                {/* ✅ 업로드 버튼에 onClick 연결 */}
+                {/* 업로드 버튼에 onClick 연결 */}
                 <UploadButton
                   type="button"
                   onClick={handleUpload}
@@ -200,18 +250,18 @@ export default function QuestionPage() {
                 >
                   {uploadLoading ? "업로드 중..." : "업로드"}
                 </UploadButton>
-                <PrimaryButton type="button">분석 시작</PrimaryButton>
+                <PrimaryButton
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={analysisLoading}
+                >
+                  {analysisLoading ? "분석 중..." : "분석 시작"}
+                </PrimaryButton>
               </BottomRow>
-              {/* ✅ 업로드 에러/성공 표시 */}
+              {/* 업로드 에러/성공 표시 */}
               {uploadError && <ErrorText>{uploadError}</ErrorText>}
               {uploadedId && (
                 <SuccessText>업로드 완료! (id: {uploadedId})</SuccessText>
-              )}
-              {uploadError && <ErrorText>{uploadError}</ErrorText>}
-              {uploadedId && (
-                <p style={{ marginTop: 8, fontSize: 12 }}>
-                  업로드 완료! id: {uploadedId}
-                </p>
               )}
             </CardBody>
           </Card>
@@ -228,7 +278,19 @@ export default function QuestionPage() {
               <Hint>
                 AI가 자기소개서 진단 후 피드백을 제공해주는 공간입니다.
               </Hint>
-              <FeedbackArea />
+              <FeedbackArea>
+                {analysisLoading ? (
+                  <FeedbackText>분석 중입니다...</FeedbackText>
+                ) : actionError ? (
+                  <FeedbackError>{actionError}</FeedbackError>
+                ) : feedback ? (
+                  <FeedbackText>{feedback}</FeedbackText>
+                ) : (
+                  <FeedbackPlaceholder>
+                    여기에 AI 피드백이 표시됩니다.
+                  </FeedbackPlaceholder>
+                )}
+              </FeedbackArea>
             </CardBody>
           </Card>
         </Main>
@@ -444,4 +506,30 @@ const FeedbackArea = styled.div`
   height: 260px;
   border-radius: 12px;
   background: #f3f3f3;
+  overflow: auto; /* 내용 길면 스크롤 */
+`
+
+const FeedbackText = styled.pre`
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap; /* 줄바꿈 유지 */
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #222;
+`
+
+const FeedbackPlaceholder = styled.p`
+  margin: 0;
+  padding: 12px;
+  font-size: 13px;
+  color: #888;
+`
+
+const FeedbackError = styled.p`
+  margin: 0;
+  padding: 12px;
+  font-size: 13px;
+  color: #d63b52;
+  font-weight: 700;
 `
