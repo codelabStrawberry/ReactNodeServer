@@ -53,24 +53,24 @@ function UploadBox({ fileName, onPick }) {
   );
 }
 
+/**
+ * ✅ 직업별(jc_code)만 남김
+ * ✅ 드롭다운을 가운데로 배치
+ */
 function FiltersBox({ value, onChange, options, loading }) {
-  const rolesDisabled = !value.jc_code || loading;
-
   return (
     <Panel>
       <PanelTitle>
         <Pink>조건</Pink>을 선택해 주세요
       </PanelTitle>
 
-      <FiltersGrid>
-        {/* 직업별 */}
+      <FiltersCenter>
         <Select
           value={value.jc_code}
           onChange={(e) =>
             onChange({
               ...value,
               jc_code: e.target.value,
-              jr_code: "",
             })
           }
           disabled={loading}
@@ -82,53 +82,7 @@ function FiltersBox({ value, onChange, options, loading }) {
             </option>
           ))}
         </Select>
-
-        {/* 직무별 */}
-        <Select
-          value={value.jr_code}
-          onChange={(e) => onChange({ ...value, jr_code: e.target.value })}
-          disabled={rolesDisabled}
-        >
-          <option value="">
-            {rolesDisabled ? "직업별 먼저 선택" : "직무별"}
-          </option>
-          {(options.roles || []).map((r) => (
-            <option key={r.jr_code} value={r.jr_code}>
-              {r.jr_name}
-            </option>
-          ))}
-        </Select>
-
-        {/* 고용 형태 */}
-        <Select
-          value={value.jp_employment_type}
-          onChange={(e) =>
-            onChange({ ...value, jp_employment_type: e.target.value })
-          }
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "고용 형태"}</option>
-          {(options.employmentTypes || []).map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </Select>
-
-        {/* 지역 */}
-        <Select
-          value={value.jp_location}
-          onChange={(e) => onChange({ ...value, jp_location: e.target.value })}
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "지역"}</option>
-          {(options.locations || []).map((loc) => (
-            <option key={loc} value={loc}>
-              {loc}
-            </option>
-          ))}
-        </Select>
-      </FiltersGrid>
+      </FiltersCenter>
     </Panel>
   );
 }
@@ -185,18 +139,13 @@ function JobCard({ job }) {
 export default function CustomPage() {
   const [pickedFile, setPickedFile] = useState(null);
 
+  // ✅ 직업별만 사용 (나머지 키 제거)
   const [filters, setFilters] = useState({
     jc_code: "",
-    jr_code: "",
-    jp_employment_type: "",
-    jp_location: "",
   });
 
   const [options, setOptions] = useState({
     categories: [],
-    roles: [],
-    employmentTypes: [],
-    locations: [],
   });
 
   const [optLoading, setOptLoading] = useState(false);
@@ -208,7 +157,6 @@ export default function CustomPage() {
   const visibleJobs = useMemo(() => jobs.slice(0, 4), [jobs]);
   const showResults = hasSearched;
 
-  // ✅ QuestionPage처럼 "절대주소"로 고정
   const API_BASE = "http://localhost:3000";
 
   const fetchJson = async (path, init) => {
@@ -224,11 +172,11 @@ export default function CustomPage() {
     return res.json();
   };
 
-  // 1) 페이지 로딩 시 옵션 불러오기
+  // 1) 페이지 로딩 시 직업별 옵션만 불러오기
   useEffect(() => {
     let ignore = false;
 
-    const loadBaseOptions = async () => {
+    const loadCategories = async () => {
       setOptLoading(true);
       try {
         const data = await fetchJson("/api/custom/jobs");
@@ -236,24 +184,16 @@ export default function CustomPage() {
 
         setOptions({
           categories: data.categories ?? [],
-          roles: data.roles ?? [],
-          employmentTypes: data.employmentTypes ?? [],
-          locations: data.locations ?? [],
         });
       } catch (e) {
         console.error(e);
-        if (!ignore) {
-          setOptions((prev) => ({
-            ...prev,
-            roles: [],
-          }));
-        }
+        if (!ignore) setOptions({ categories: [] });
       } finally {
         if (!ignore) setOptLoading(false);
       }
     };
 
-    loadBaseOptions();
+    loadCategories();
 
     return () => {
       ignore = true;
@@ -261,44 +201,7 @@ export default function CustomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) 직업별 바뀌면 직무 목록 불러오기
-  useEffect(() => {
-    let ignore = false;
-
-    const loadRoles = async () => {
-      if (!filters.jc_code) {
-        setOptions((prev) => ({ ...prev, roles: [] }));
-        return;
-      }
-
-      setOptLoading(true);
-      try {
-        const data = await fetchJson(
-          `/api/custom/jobs?jc_code=${encodeURIComponent(filters.jc_code)}`
-        );
-
-        if (ignore) return;
-
-        setOptions((prev) => ({
-          ...prev,
-          roles: data.roles ?? [],
-        }));
-      } catch (e) {
-        console.error(e);
-        if (!ignore) setOptions((prev) => ({ ...prev, roles: [] }));
-      } finally {
-        if (!ignore) setOptLoading(false);
-      }
-    };
-
-    loadRoles();
-
-    return () => {
-      ignore = true;
-    };
-  }, [filters.jc_code]);
-
-  // 3) 공고 찾기
+  // 2) 공고 찾기 (✅ 직업별만 전송)
   const onSearch = async () => {
     setHasSearched(true);
 
@@ -315,15 +218,11 @@ export default function CustomPage() {
     setIsLoading(true);
 
     try {
-      // ✅ 설치 없이 진행하려고 JSON으로 보냄
       const data = await fetchJson("/api/custom/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jc_code: filters.jc_code,
-          jr_code: filters.jr_code || null,
-          jp_employment_type: filters.jp_employment_type || null,
-          jp_location: filters.jp_location || null,
         }),
       });
 
@@ -524,20 +423,16 @@ const HiddenFile = styled.input`
   display: none;
 `;
 
-const FiltersGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 110px);
-  gap: 10px;
+/* ✅ 직업별 드롭다운을 “가운데”로 */
+const FiltersCenter = styled.div`
+  width: min(320px, 100%);
+  display: flex;
   justify-content: center;
-
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: min(520px, 100%);
-  }
 `;
 
 const Select = styled.select`
-  height: 30px;
+  width: 100%;
+  height: 34px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
   background: #ffffff;
