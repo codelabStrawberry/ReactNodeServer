@@ -1,91 +1,66 @@
-
+// custom_db.js
 const pool = require("./db");
 
-// 직업별
-async function selectCategories() {
+// 1) 직업별(카테고리) - job_cat distinct
+async function selectJobCats() {
   const sql = `
-    SELECT jc_code, jc_name
-    FROM job_categories
-    ORDER BY jc_name ASC
+    SELECT DISTINCT job_cat
+    FROM recruit_posts
+    WHERE job_cat IS NOT NULL AND job_cat <> ''
+    ORDER BY job_cat ASC
   `;
   const [rows] = await pool.query(sql);
-  return rows;
+  return rows.map((r) => r.job_cat);
 }
 
-// 직무
-async function selectRolesByCategory(jc_code) {
+// 2) (선택) 직업별에 따른 직무 키워드 후보 - job_keyword distinct
+async function selectKeywordsByJobCat(job_cat) {
   const sql = `
-    SELECT jr_code, jr_name, jc_code
-    FROM job_roles
-    WHERE jc_code = ?
-    ORDER BY jr_name ASC
+    SELECT DISTINCT job_keyword
+    FROM recruit_posts
+    WHERE job_cat = ?
+      AND job_keyword IS NOT NULL AND job_keyword <> ''
+    ORDER BY job_keyword ASC
   `;
-  const [rows] = await pool.query(sql, [jc_code]);
-  return rows;
+  const [rows] = await pool.query(sql, [job_cat]);
+  return rows.map((r) => r.job_keyword);
 }
 
-// 고용형태
-async function selectEmploymentTypesDistinct() {
-  const sql = `
-    SELECT DISTINCT jp_employment_type
-    FROM job_postings
-    WHERE jp_employment_type IS NOT NULL AND jp_employment_type <> ''
-    ORDER BY jp_employment_type ASC
-  `;
-  const [rows] = await pool.query(sql);
-  return rows.map((r) => r.jp_employment_type);
-}
 
-// 지역
-async function selectLocationsDistinct() {
-  const sql = `
-    SELECT DISTINCT jp_location
-    FROM job_postings
-    WHERE jp_location IS NOT NULL AND jp_location <> ''
-    ORDER BY jp_location ASC
-  `;
-  const [rows] = await pool.query(sql);
-  return rows.map((r) => r.jp_location);
-}
-
-// 조건 기반 공고조회
+// - job_cat: 필수
+// - role_text: 직무 입력(자유 텍스트) -> job_title / job_keyword에서 검색
+// - tech_text: 기술 입력(자유 텍스트) -> job_tech에서 검색
 async function selectPostingsByFilters({
-  jc_code,
-  jr_code,
-  jp_employment_type,
-  jp_location,
+  job_cat,
+  role_text = "",
+  tech_text = "",
   limit = 4,
 } = {}) {
-  if (!jc_code) return [];
+  if (!job_cat) return [];
 
   let sql = `
-    SELECT jp.*
-    FROM job_postings jp
-    JOIN job_roles jr
-      ON jp.jr_code = jr.jr_code
-    WHERE jr.jc_code = ?
+    SELECT
+      id, recruit_id, job_cat, job_title, job_company, job_url, job_keyword, job_tech
+    FROM recruit_posts
+    WHERE job_cat = ?
   `;
-  const params = [jc_code];
+  const params = [job_cat];
 
-  if (jr_code) {
-    sql += ` AND jp.jr_code = ?`;
-    params.push(jr_code);
+  // 직무 (키워드)
+  if (role_text && role_text.trim()) {
+    const role = role_text.trim();
+    sql += ` AND (job_title LIKE ? OR job_keyword LIKE ?)`;
+    params.push(`%${role}%`, `%${role}%`);
   }
 
-  if (jp_employment_type) {
-    sql += ` AND jp.jp_employment_type = ?`;
-    params.push(jp_employment_type);
+  // 기술
+  if (tech_text && tech_text.trim()) {
+    const tech = tech_text.trim();
+    sql += ` AND (job_tech LIKE ?)`;
+    params.push(`%${tech}%`);
   }
 
-  if (jp_location) {
-    sql += ` AND jp.jp_location = ?`;
-    params.push(jp_location);
-  }
-
-
-  sql += ` ORDER BY jp.jp_id DESC`;
-
-  sql += ` LIMIT ?`;
+  sql += ` ORDER BY id DESC LIMIT ?`;
   params.push(Number(limit) || 4);
 
   const [rows] = await pool.query(sql, params);
@@ -93,9 +68,7 @@ async function selectPostingsByFilters({
 }
 
 module.exports = {
-  selectCategories,
-  selectRolesByCategory,
-  selectEmploymentTypesDistinct,
-  selectLocationsDistinct,
+  selectJobCats,
+  selectKeywordsByJobCat,
   selectPostingsByFilters,
 };

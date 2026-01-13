@@ -2,27 +2,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import styled from "@emotion/styled";
 
-const SAMPLE_JOBS = [
-  {
-    id: "job-1",
-    title: "시니어 프론트엔드 개발자",
-    company: "스트로베리",
-    location: "서울 금천구",
-    exp: "5년 이상",
-    badges: ["BEST", "신규 공고"],
-    skills: ["React", "TypeScript", "Node.js", "AWS"],
-  },
-  {
-    id: "job-2",
-    title: "백엔드 개발자 (Node.js)",
-    company: "베네티브",
-    location: "서울 강남구",
-    exp: "3년 이상",
-    badges: ["신규 공고"],
-    skills: ["Node.js", "Express", "MySQL"],
-  },
-];
-
 function UploadBox({ fileName, onPick }) {
   const inputId = useId();
 
@@ -139,7 +118,6 @@ function JobCard({ job }) {
 export default function CustomPage() {
   const [pickedFile, setPickedFile] = useState(null);
 
-  // ✅ 직업별만 사용 (나머지 키 제거)
   const [filters, setFilters] = useState({
     jc_code: "",
   });
@@ -172,7 +150,6 @@ export default function CustomPage() {
     return res.json();
   };
 
-  // 1) 페이지 로딩 시 직업별 옵션만 불러오기
   useEffect(() => {
     let ignore = false;
 
@@ -186,7 +163,7 @@ export default function CustomPage() {
           categories: data.categories ?? [],
         });
       } catch (e) {
-        console.error(e);
+        console.error("jobs categories fetch failed:", e);
         if (!ignore) setOptions({ categories: [] });
       } finally {
         if (!ignore) setOptLoading(false);
@@ -198,13 +175,13 @@ export default function CustomPage() {
     return () => {
       ignore = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) 공고 찾기 (✅ 직업별만 전송)
+  // ✅ 공고 찾기: JSON 전송 (서버 match 라우트와 형식 통일)
   const onSearch = async () => {
     setHasSearched(true);
 
+    // 파일은 UI 정책상 필수로 두되, 서버에 보내지는 않음(현재 백엔드 match는 JSON 기반)
     if (!pickedFile) {
       alert("자기소개서를 업로드해 주세요.");
       return;
@@ -223,13 +200,15 @@ export default function CustomPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jc_code: filters.jc_code,
+          limit: 4,
         }),
       });
 
-      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
+      setJobs(Array.isArray(list) ? list : []);
     } catch (e) {
-      console.error(e);
-      setJobs(SAMPLE_JOBS.slice(0, 4));
+      console.error("match failed:", e);
+      setJobs([]);
     } finally {
       setIsLoading(false);
     }
@@ -279,8 +258,17 @@ export default function CustomPage() {
               <LoadingText>공고를 찾는 중이에요...</LoadingText>
             ) : visibleJobs.length > 0 ? (
               <ResultsGrid>
-                {visibleJobs.map((job) => (
-                  <JobCard key={job.id ?? job.jp_id ?? job.title} job={job} />
+                {visibleJobs.map((job, idx) => (
+                  <JobCard
+                    key={
+                      job.id ??
+                      job.jp_id ??
+                      job.recruit_id ??
+                      job.job_url ??
+                      `${job.title ?? job.jp_title ?? "job"}-${idx}`
+                    }
+                    job={job}
+                  />
                 ))}
               </ResultsGrid>
             ) : (
@@ -293,7 +281,7 @@ export default function CustomPage() {
   );
 }
 
-// ===================== CSS
+// ===================== CSS (원문 그대로)
 const Wrap = styled.main`
   width: 100%;
   padding: 20px 0 56px;
@@ -423,7 +411,6 @@ const HiddenFile = styled.input`
   display: none;
 `;
 
-/* ✅ 직업별 드롭다운을 “가운데”로 */
 const FiltersCenter = styled.div`
   width: min(320px, 100%);
   display: flex;
