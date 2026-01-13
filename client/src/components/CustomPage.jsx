@@ -7,7 +7,7 @@ function UploadBox({ fileName, onPick }) {
 
   return (
     <Panel>
-      <PanelTitle>
+      <PanelTitle data-align="to-box">
         당신의 <Pink>커리어</Pink>를 <Pink>AI</Pink>에게 보여주세요
       </PanelTitle>
 
@@ -32,35 +32,59 @@ function UploadBox({ fileName, onPick }) {
   );
 }
 
-/**
- * ✅ 직업별(jc_code)만 남김
- * ✅ 드롭다운을 가운데로 배치
- */
 function FiltersBox({ value, onChange, options, loading }) {
   return (
     <Panel>
-      <PanelTitle>
+      <PanelTitle data-align="to-box">
         <Pink>조건</Pink>을 선택해 주세요
       </PanelTitle>
 
       <FiltersCenter>
-        <Select
-          value={value.jc_code}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              jc_code: e.target.value,
-            })
-          }
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "직업별"}</option>
-          {(options.categories || []).map((c) => (
-            <option key={c.jc_code} value={c.jc_code}>
-              {c.jc_name}
-            </option>
-          ))}
-        </Select>
+        <FiltersRow>
+          <Select
+            value={value.jc_code}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                jc_code: e.target.value,
+              })
+            }
+            disabled={loading}
+          >
+            <option value="">{loading ? "불러오는 중..." : "직업별"}</option>
+            {(options.categories || []).map((c) => (
+              <option key={c.jc_code} value={c.jc_code}>
+                {c.jc_name}
+              </option>
+            ))}
+          </Select>
+
+          <Input
+            type="text"
+            placeholder="기술을 입력해 주세요."
+            value={value.tech_text ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                tech_text: e.target.value,
+              })
+            }
+            disabled={loading}
+          />
+
+          <Input
+            type="text"
+            placeholder="직무를 입력해 주세요."
+            value={value.role_text ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                role_text: e.target.value,
+              })
+            }
+            disabled={loading}
+          />
+        </FiltersRow>
       </FiltersCenter>
     </Panel>
   );
@@ -120,6 +144,8 @@ export default function CustomPage() {
 
   const [filters, setFilters] = useState({
     jc_code: "",
+    tech_text: "",
+    role_text: "",
   });
 
   const [options, setOptions] = useState({
@@ -177,11 +203,9 @@ export default function CustomPage() {
     };
   }, []);
 
-  // ✅ 공고 찾기: JSON 전송 (서버 match 라우트와 형식 통일)
   const onSearch = async () => {
     setHasSearched(true);
 
-    // 파일은 UI 정책상 필수로 두되, 서버에 보내지는 않음(현재 백엔드 match는 JSON 기반)
     if (!pickedFile) {
       alert("자기소개서를 업로드해 주세요.");
       return;
@@ -281,7 +305,14 @@ export default function CustomPage() {
   );
 }
 
-// ===================== CSS (원문 그대로)
+
+
+
+// ===================== CSS
+
+const PANEL_W = 460; 
+const CONTAINER_W = 1100; 
+
 const Wrap = styled.main`
   width: 100%;
   padding: 20px 0 56px;
@@ -289,7 +320,7 @@ const Wrap = styled.main`
 `;
 
 const Container = styled.div`
-  width: min(var(--container-w), calc(100% - 32px));
+  width: min(${CONTAINER_W}px, calc(100% - 32px));
   margin: 0 auto;
 `;
 
@@ -339,6 +370,7 @@ const Divider = styled.div`
   }
 `;
 
+
 const Panel = styled.div`
   display: flex;
   flex-direction: column;
@@ -346,13 +378,20 @@ const Panel = styled.div`
   justify-content: center;
 `;
 
+
 const PanelTitle = styled.h2`
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 900;
   letter-spacing: -0.2px;
   color: #111827;
+
+  width: ${PANEL_W}px;
   text-align: center;
+
+  @media (max-width: 520px) {
+    width: 100%;
+  }
 `;
 
 const Pink = styled.span`
@@ -360,7 +399,7 @@ const Pink = styled.span`
 `;
 
 const UploadRow = styled.div`
-  width: 320px;
+  width: ${PANEL_W}px;
   height: 34px;
   display: grid;
   grid-template-columns: 1fr 34px;
@@ -369,7 +408,7 @@ const UploadRow = styled.div`
   background: #ffffff;
   overflow: hidden;
 
-  @media (max-width: 420px) {
+  @media (max-width: 520px) {
     width: 100%;
   }
 `;
@@ -412,13 +451,29 @@ const HiddenFile = styled.input`
 `;
 
 const FiltersCenter = styled.div`
-  width: min(320px, 100%);
+  width: ${PANEL_W}px;
   display: flex;
   justify-content: center;
+
+  @media (max-width: 520px) {
+    width: 100%;
+  }
+`;
+
+
+const FiltersRow = styled.div`
+  width: ${PANEL_W}px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  @media (max-width: 520px) {
+    width: 100%;
+    gap: 8px;
+  }
 `;
 
 const Select = styled.select`
-  width: 100%;
   height: 34px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
@@ -428,6 +483,35 @@ const Select = styled.select`
   color: #374151;
   outline: none;
   cursor: pointer;
+
+  /* ✅ 3칸 동일 폭 */
+  flex: 1;
+  min-width: 0;
+
+  &:focus {
+    border-color: rgba(224, 82, 105, 0.6);
+    box-shadow: 0 0 0 3px rgba(224, 82, 105, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const Input = styled.input`
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #374151;
+  outline: none;
+
+  /* ✅ 3칸 동일 폭 */
+  flex: 1;
+  min-width: 0;
 
   &:focus {
     border-color: rgba(224, 82, 105, 0.6);
@@ -642,3 +726,4 @@ const EmptyText = styled.p`
   color: var(--muted);
   font-size: 13px;
 `;
+
