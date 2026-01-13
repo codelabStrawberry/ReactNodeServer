@@ -1,4 +1,4 @@
-import { use, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
 
 export default function InterviewPage() {
@@ -16,11 +16,14 @@ export default function InterviewPage() {
   const fileRef = useRef(null)
   const [resumeFile, setResumeFile] = useState(null)
   const [fileError, setFileError] = useState("")
-  const [fileUploadLoading, setFileUploadLoading] = useState(false)
-  const [uploadedResumeId, setUploadedResumeId] = useState(null)
+
+  // AI 질문 생성
+  const [resumeText, setResumeText] = useState("")
+  const [jdText, setJdText] = useState("")
 
   // 결과
-  const [questions, setQuestions] = useState("") // AI 예상 질문 결과 텍스트
+  const [questions, setQuestions] = useState([]) // ["질문1", "질문2", ...]
+  const [selectedIdx, setSelectedIdx] = useState(null)
   const [answer, setAnswer] = useState("") // AI 예상 답변 결과 텍스트
   const [qLoading, setQLoading] = useState(false)
   const [aLoading, setALoading] = useState(false)
@@ -70,44 +73,7 @@ export default function InterviewPage() {
   const handleFileChange = (e) => {
     const f = e.target.files?.[0]
     setFileError("")
-    setUploadedResumeId(null)
     setResumeFile(f || null)
-  }
-
-  // (선택) 자기소개서 파일 업로드 -> 서버에 저장 후 id 받기
-  // 실제 백엔드 스펙에 맞춰 endpoint/필드명 바꿔주세요.
-  const handleUploadResumeFile = async () => {
-    try {
-      setFileError("")
-      setUploadedResumeId(null)
-
-      if (!job) return setFileError("직무 역할을 선택해주세요.")
-      if (!resumeFile) return setFileError("자기소개서 파일을 선택해주세요.")
-
-      setFileUploadLoading(true)
-
-      const form = new FormData()
-      form.append("jc_code", job)
-      form.append("file", resumeFile)
-
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/job-resumes/file`,
-        {
-          method: "POST",
-          body: form,
-          credentials: "include",
-        }
-      )
-
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) return setFileError(data?.error || "파일 업로드 실패")
-
-      setUploadedResumeId(data?.jrs_id ?? null)
-    } catch (e) {
-      setFileError(e.message || "파일 업로드 중 오류")
-    } finally {
-      setFileUploadLoading(false)
-    }
   }
 
   const validateCommon = () => {
@@ -134,28 +100,34 @@ export default function InterviewPage() {
 
   const handleGenerateQuestions = async () => {
     if (!validateCommon()) return
+
+    if (!resumeFile) {
+      setActionError("자기소개서 PDF를 선택해주세요.")
+      return
+    }
+
     try {
       setQLoading(true)
       setActionError("")
-      setQuestions("")
+      setQuestions([])
+      setSelectedIdx(null)
       setAnswer("")
 
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
-      const jobName = selected?.jc_name || null
+      const jobName = selected?.jc_name || selected?.jc_code || ""
+
+      const form = new FormData()
+      form.append("jc_code", job)
+      form.append("job_name", jobName)
+      form.append("url", url.trim())
+      form.append("file", resumeFile)
+      form.append("n_questions", "5")
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/questions`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            jc_code: job,
-            job_name: jobName,
-            url: url.trim(),
-            resume_id: uploadedResumeId, // 업로드했다면 id로 넘기기
-            // 또는 텍스트로 넘기는 방식이면 resume_text 추가
-          }),
+          body: form,
         }
       )
 
@@ -163,25 +135,58 @@ export default function InterviewPage() {
       if (!res.ok)
         throw new Error(data?.detail || data?.error || "질문 생성 실패")
 
-      setQuestions(data?.questions || data?.result || "")
+      // questions가 배열이면 보기 좋게 줄바꿈 문자열로 변환
+      const list = Array.isArray(data?.questions) ? data.questions : []
+
+      setQuestions(list)
+      setSelectedIdx(list.length ? 0 : null)
+      // 백엔드 : resume_text 내려줌 (답변 생성에 사용)
+      setResumeText(data?.resume_text || "")
+
+      // (선택) jd_text도 백엔드에서 내려주면 저장
+      setJdText(data?.jd_text || "")
     } catch (e) {
-      setActionError(e.message || "질문 생성 중 오류")
+      setActionError(e?.message || "질문 생성 중 오류")
     } finally {
-      setQLoading(false)
+      setQLoading(false) // ✅ 이게 없으면 영원히 생성중
     }
   }
 
   // AI 예상 답변 생성(질문 결과 기반)
   const handleGenerateAnswer = async () => {
     if (!validateCommon()) return
+
     try {
       setALoading(true)
       setActionError("")
       setAnswer("")
 
-      if (!questions.trim()) {
+      if (!questions.length()) {
         setActionError("먼저 질문 생성이 필요합니다.")
         return
+      }
+
+      if (selectedIdx === null) {
+        setActionError("답변을 생성할 질문을 선택해주세요.")
+        return
+      }
+
+      if (!resumeText.trim()) {
+        setActionError("질문 생성 후 다시 시도해주세요. (resume_text 없음)")
+        return
+      }
+
+      const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
+      const jobName = selected?.jc_name || ""
+
+      const selectedQuestion = questions[selectedIdx]
+
+      const payload = {
+        jc_code: job,
+        job_name: jobName,
+        url: url.trim(),
+        resume_text: resumeText,
+        questions: [selectedQuestion],
       }
 
       const res = await fetch(
@@ -190,12 +195,7 @@ export default function InterviewPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            url: url.trim(),
-            jc_code: job,
-            questions: questions,
-            resume_id: uploadedResumeId,
-          }),
+          body: JSON.stringify(payload),
         }
       )
 
@@ -276,26 +276,15 @@ export default function InterviewPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept=".pdf,.txt,.doc,.docx"
+                accept=".pdf"
                 style={{ display: "none" }}
                 onChange={handleFileChange}
               />
 
               <FileRow>
-                <FileButton
-                  type="button"
-                  onClick={handlePickFile}
-                  disabled={fileUploadLoading}
-                >
+                <FileButton type="button" onClick={handlePickFile}>
                   📄 자기소개서 업로드
                 </FileButton>
-                <MiniIconButton
-                  type="button"
-                  onClick={handleUploadResumeFile}
-                  disabled={fileUploadLoading}
-                >
-                  업로드
-                </MiniIconButton>
               </FileRow>
 
               <FileMeta>
@@ -303,9 +292,6 @@ export default function InterviewPage() {
               </FileMeta>
 
               {fileError && <ErrorText>{fileError}</ErrorText>}
-              {uploadedResumeId && (
-                <SuccessText>업로드 완료! (id: {uploadedResumeId})</SuccessText>
-              )}
             </CardBody>
           </Card>
         </Side>
@@ -321,10 +307,27 @@ export default function InterviewPage() {
             </CardHeader>
 
             <CardBody>
-              {/* 스샷처럼 줄만 있는 영역 느낌 */}
               <LinesBox>
-                {questions ? (
-                  <ResultPre>{questions}</ResultPre>
+                {questions.length ? (
+                  <QuestionList>
+                    {questions.map((q, idx) => {
+                      const active = idx === selectedIdx
+                      return (
+                        <QuestionItem
+                          key={`${idx}-${q.slice(0, 10)}`}
+                          type="button"
+                          $active={active}
+                          onClick={() => {
+                            setSelectedIdx(idx)
+                            setActionError("")
+                          }}
+                        >
+                          <QBadge $active={active}>Q{idx + 1}</QBadge>
+                          <QText $active={active}>{q}</QText>
+                        </QuestionItem>
+                      )
+                    })}
+                  </QuestionList>
                 ) : (
                   <LinesPlaceholder>
                     <Line />
@@ -654,4 +657,53 @@ const PrimaryButton = styled.button`
     opacity: 0.6;
     cursor: not-allowed;
   }
+`
+/* ✅ Question list UI */
+const QuestionList = styled.div`
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const QuestionItem = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid
+    ${(p) => (p.$active ? "rgba(224, 82, 105, 0.9)" : "rgba(0,0,0,0.08)")};
+  background: ${(p) =>
+    p.$active ? "rgba(224, 82, 105, 0.08)" : "rgba(255,255,255,0.65)"};
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    border-color: rgba(224, 82, 105, 0.7);
+  }
+`
+
+const QBadge = styled.div`
+  flex: none;
+  min-width: 36px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: ${(p) => (p.$active ? "#fff" : "rgba(224, 82, 105, 1)")};
+  background: ${(p) =>
+    p.$active ? "rgba(224, 82, 105, 1)" : "rgba(224, 82, 105, 0.12)"};
+  border: 1px solid rgba(224, 82, 105, 0.35);
+`
+
+const QText = styled.div`
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #222;
+  font-weight: ${(p) => (p.$active ? 800 : 600)};
 `
