@@ -121,7 +121,7 @@ export default function InterviewPage() {
       form.append("job_name", jobName)
       form.append("url", url.trim())
       form.append("file", resumeFile)
-      form.append("n_questions", "5")
+      form.append("n_questions", "6")
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/questions`,
@@ -134,6 +134,9 @@ export default function InterviewPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok)
         throw new Error(data?.detail || data?.error || "질문 생성 실패")
+
+      console.log("jd_text length:", (data?.jd_text || "").length)
+      console.log("jd_text preview:", (data?.jd_text || "").slice(0, 300))
 
       // questions가 배열이면 보기 좋게 줄바꿈 문자열로 변환
       const list = Array.isArray(data?.questions) ? data.questions : []
@@ -148,7 +151,7 @@ export default function InterviewPage() {
     } catch (e) {
       setActionError(e?.message || "질문 생성 중 오류")
     } finally {
-      setQLoading(false) // ✅ 이게 없으면 영원히 생성중
+      setQLoading(false) // 이게 없으면 영원히 생성중
     }
   }
 
@@ -161,7 +164,7 @@ export default function InterviewPage() {
       setActionError("")
       setAnswer("")
 
-      if (!questions.length()) {
+      if (!questions.length) {
         setActionError("먼저 질문 생성이 필요합니다.")
         return
       }
@@ -186,8 +189,14 @@ export default function InterviewPage() {
         job_name: jobName,
         url: url.trim(),
         resume_text: resumeText,
+        jd_text: jdText,
         questions: [selectedQuestion],
+        // questions: [selectedQuestion],
       }
+
+      console.log("selectedIdx:", selectedIdx)
+      console.log("selectedQuestion:", questions[selectedIdx])
+      console.log("payload:", payload)
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/answer`,
@@ -308,36 +317,25 @@ export default function InterviewPage() {
 
             <CardBody>
               <LinesBox>
-                {questions.length ? (
-                  <QuestionList>
-                    {questions.map((q, idx) => {
-                      const active = idx === selectedIdx
-                      return (
-                        <QuestionItem
-                          key={`${idx}-${q.slice(0, 10)}`}
-                          type="button"
-                          $active={active}
-                          onClick={() => {
-                            setSelectedIdx(idx)
-                            setActionError("")
-                          }}
-                        >
-                          <QBadge $active={active}>Q{idx + 1}</QBadge>
-                          <QText $active={active}>{q}</QText>
-                        </QuestionItem>
-                      )
-                    })}
-                  </QuestionList>
-                ) : (
-                  <LinesPlaceholder>
-                    <Line />
-                    <Line />
-                    <Line />
-                    <Line />
-                    <Line />
-                    <Line />
-                  </LinesPlaceholder>
-                )}
+                <QuestionList>
+                  {questions.map((q, idx) => {
+                    const active = idx === selectedIdx
+                    return (
+                      <QuestionItem
+                        key={`${idx}-${q.slice(1, 10)}`}
+                        type="button"
+                        $active={active}
+                        onClick={() => {
+                          setSelectedIdx(idx)
+                          setActionError("")
+                        }}
+                      >
+                        <QBadge $active={active}>Q{idx + 1}</QBadge>
+                        <QText $active={active}>{q}</QText>
+                      </QuestionItem>
+                    )
+                  })}
+                </QuestionList>
               </LinesBox>
 
               <ActionRow>
