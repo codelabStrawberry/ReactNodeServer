@@ -4,9 +4,11 @@ import { sendInterviewMessage, getInterviewHistory } from "../api/chat";
 
 export default function Chatbot({ startPayload, sessionId, disabled }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]); // { id, role: 'user'|'assistant', text, typing? }
+  const [messages, setMessages] = useState([]); // { id, role, text, typing?, isPlaying? }
   const chatBoxRef = useRef(null);
-  // console.log(startPayload);
+  const speechRef = useRef(null); // 현재 utterance 참조
+  const currentPlayingId = useRef(null); // 현재 재생 중인 메시지 id
+
   const scrollToBottom = () => {
     const el = chatBoxRef.current;
     if (!el) return;
@@ -27,18 +29,16 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
         if (ignore) return;
 
         const history = data?.history || [];
-        // history -> UI messages 포맷으로 변환
         const restored = history.map((h) => ({
           id: crypto.randomUUID(),
           role: h.role === "assistant" ? "assistant" : "user",
           text: h.content,
+          isPlaying: false,
         }));
 
-        // 기존 messages가 비어있을 때만 복원 (중복 방지)
         setMessages((prev) => (prev.length === 0 ? restored : prev));
       } catch (e) {
-        // 세션이 만료(1시간 TTL)됐거나 없으면: 그냥 빈 상태 유지
-        // 필요하면 여기서 사용자에게 안내 메시지 추가 가능
+        // 세션이 만료됐거나 없으면 빈 상태 유지
       }
     };
 
@@ -48,13 +48,12 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     };
   }, [sessionId]);
 
-  // ✅ startPayload 도착 시 최초 안내 메시지 1회 삽입
   useEffect(() => {
     if (!startPayload) return;
 
     const readyText =
       startPayload?.readyMessage ||
-      "<면접 준비 완료> 준비가 되셨으면 '시작하기(프론트)'라고 메시지를 보내주세요.";
+      "<면접 준비 완료> 준비가 되셨으면 '시작하기'라고 메시지를 보내주세요.";
 
     setMessages((prev) => {
       if (prev.length > 0) return prev;
@@ -63,6 +62,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
           id: crypto.randomUUID(),
           role: "assistant",
           text: readyText,
+          isPlaying: false,
         },
       ];
     });
@@ -70,7 +70,6 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
 
   useEffect(() => {
     if (!sessionId) return;
-
     const key = `interview.messages:${sessionId}`;
     const saved = localStorage.getItem(key);
     if (saved) {
@@ -94,13 +93,13 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     if (!text) return;
 
     if (!sessionId) {
-      // 세션이 없으면 전송 불가 (start 먼저 필요)
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: "assistant",
           text: "세션이 없어요. 먼저 '채팅 시작'을 눌러주세요.",
+          isPlaying: false,
         },
       ]);
       return;
@@ -109,22 +108,24 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     const userMsgId = crypto.randomUUID();
     const typingId = crypto.randomUUID();
 
-    // 1) UI에 user + typing 먼저 표시
     setMessages((prev) => [
       ...prev,
-      { id: userMsgId, role: "user", text },
-      { id: typingId, role: "assistant", text: "", typing: true },
+      { id: userMsgId, role: "user", text, isPlaying: false },
+      {
+        id: typingId,
+        role: "assistant",
+        text: "",
+        typing: true,
+        isPlaying: false,
+      },
     ]);
 
     setInput("");
 
     try {
-      // ✅ 새 엔드포인트: POST /chat/message
       const data = await sendInterviewMessage({ sessionId, message: text });
-      // console.log(data);
       const reply = (data?.answer ?? "").trim();
 
-      // 3) typing bubble을 실제 답변으로 교체
       setMessages((prev) =>
         prev.map((m) =>
           m.id === typingId
@@ -132,6 +133,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
                 ...m,
                 text: reply || "답변이 비어있어요. 다시 보내주세요.",
                 typing: false,
+                isPlaying: false,
               }
             : m
         )
@@ -145,6 +147,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
                 ...m,
                 text: "에러가 발생했어요. 다시 시도해 주세요.",
                 typing: false,
+                isPlaying: false,
               }
             : m
         )
@@ -159,6 +162,53 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
     }
   };
 
+  const speakText = (text, messageId) => {
+    if (!window.speechSynthesis) {
+      console.warn("브라우저가 Web Speech API를 지원하지 않습니다.");
+      return;
+    }
+
+    // 같은 메시지가 이미 재생 중이면 정지
+    if (currentPlayingId.current === messageId && speechRef.current) {
+      window.speechSynthesis.cancel();
+      currentPlayingId.current = null;
+      speechRef.current = null;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, isPlaying: false } : m))
+      );
+      return;
+    }
+
+    // 다른 메시지 재생 시 이전 것 정지
+    if (speechRef.current) {
+      window.speechSynthesis.cancel();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ko-KR";
+    utterance.volume = 1;
+    utterance.rate = 1.5;
+    utterance.pitch = 1;
+
+    speechRef.current = utterance;
+    currentPlayingId.current = messageId;
+
+    window.speechSynthesis.speak(utterance);
+
+    utterance.onend = () => {
+      speechRef.current = null;
+      currentPlayingId.current = null;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, isPlaying: false } : m))
+      );
+    };
+
+    // 재생 시작 즉시 상태 업데이트
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, isPlaying: true } : m))
+    );
+  };
+
   return (
     <Container>
       <ChatBox ref={chatBoxRef}>
@@ -167,7 +217,10 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
             key={m.id}
             className={`${m.role} ${m.typing ? "typing" : ""}`}
           >
-            <strong>{m.role === "user" ? "나: " : "AI: "}</strong>
+            <BbRole>
+              <strong>{m.role === "user" ? "나: " : "AI: "}</strong>
+            </BbRole>
+
             {m.typing ? (
               <span className="dots">
                 <span />
@@ -175,7 +228,19 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
                 <span />
               </span>
             ) : (
-              m.text
+              <>
+                <BbContent>{m.text}</BbContent>
+
+                {m.role === "assistant" && (
+                  <SpeakButton
+                    onClick={() => speakText(m.text, m.id)}
+                    aria-label={m.isPlaying ? "음성 정지" : "음성 재생"}
+                    $isPlaying={m.isPlaying}
+                  >
+                    {m.isPlaying ? "⏹" : "▶️"}
+                  </SpeakButton>
+                )}
+              </>
             )}
           </Bubble>
         ))}
@@ -222,6 +287,8 @@ const Bubble = styled.div`
   border-radius: 10px;
   padding: 10px 12px;
   line-height: 1.4;
+  display: flex;
+  gap: 8px;
 
   &.user {
     align-self: flex-end;
@@ -238,7 +305,7 @@ const Bubble = styled.div`
   strong {
     margin-right: 6px;
   }
-  /* typing dots */
+
   &.typing .dots {
     display: inline-flex;
     gap: 4px;
@@ -249,12 +316,11 @@ const Bubble = styled.div`
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: currentColor; /* 글자색 따라감 */
+    background: currentColor;
     opacity: 0.25;
     animation: blink 1s infinite;
   }
 
-  /* 3개의 점이 순서대로 깜빡이게 */
   &.typing .dots span:nth-of-type(2) {
     animation-delay: 0.2s;
   }
@@ -271,6 +337,31 @@ const Bubble = styled.div`
     40% {
       opacity: 1;
     }
+  }
+`;
+
+const BbRole = styled.div``;
+
+const BbContent = styled.div``;
+
+const SpeakButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: ${({ $isPlaying }) => ($isPlaying ? "#ff4d4f" : "inherit")};
+  opacity: 0.7;
+  transition: all 0.2s;
+  margin-top: auto;
+  padding: 4px;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  &:focus {
+    outline: none;
   }
 `;
 
