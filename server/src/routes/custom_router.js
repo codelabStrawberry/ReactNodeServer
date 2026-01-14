@@ -4,7 +4,7 @@ const router = express.Router();
 
 const {
   selectJobCats,
-  selectKeywordsByJobCat, // 선택: 직무 드롭다운용
+  selectKeywordsByJobCat,
   selectPostingsByFilters,
 } = require("../db/custom_db");
 
@@ -29,8 +29,7 @@ function toPositiveInt(v, fallback) {
  * GET /api/custom/jobs
  * - 직업별(job_cat) 목록 내려주고,
  * - (선택) job_cat 쿼리 있으면 해당 직업별 직무키워드(job_keyword)도 같이 내려줌
- *
- * 예) /api/custom/jobs?job_cat=개발
+
  */
 router.get("/jobs", async (req, res) => {
   try {

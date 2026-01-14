@@ -92,10 +92,24 @@ function FiltersBox({ value, onChange, options, loading }) {
 
 function JobCard({ job }) {
   const title = job.title ?? job.jp_title ?? job.job_title ?? "제목 없음";
-  const company = job.company ?? job.jp_company ?? job.company_name ?? "회사";
-  const location = job.location ?? job.jp_location ?? "지역";
-  const exp = job.exp ?? job.jp_exp ?? "경력";
-  const skills = job.skills ?? job.jp_skills ?? [];
+  const company =
+    job.company ?? job.jp_company ?? job.job_company ?? job.company_name ?? "회사";
+  const location = job.location ?? job.jp_location ?? job.job_location ?? "지역";
+  const exp = job.exp ?? job.jp_exp ?? job.job_exp ?? "경력";
+
+  const skillsRaw = job.skills ?? job.jp_skills ?? job.job_tech ?? [];
+  const skills = Array.isArray(skillsRaw)
+    ? skillsRaw
+    : String(skillsRaw ?? "")
+        .split(/[,|\/]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+  const onOpen = () => {
+    const url = job.url ?? job.jp_url ?? job.job_url;
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <JobCardWrap>
@@ -133,7 +147,9 @@ function JobCard({ job }) {
       )}
 
       <CardActions>
-        <DetailBtn type="button">상세보기</DetailBtn>
+        <DetailBtn type="button" onClick={onOpen}>
+          상세보기
+        </DetailBtn>
       </CardActions>
     </JobCardWrap>
   );
@@ -163,17 +179,68 @@ export default function CustomPage() {
 
   const API_BASE = "http://localhost:3000";
 
-  const fetchJson = async (path, init) => {
+
+  const fetchJson = async (path, init = {}) => {
     const res = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
       ...init,
     });
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `Request failed: ${res.status}`);
+    const text = await res.text().catch(() => "");
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
     }
-    return res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || `Request failed: ${res.status}`);
+    }
+
+    return data;
+  };
+
+  const normalizeCategories = (data) => {
+    if (!data) return [];
+
+    if (Array.isArray(data)) {
+      return data
+        .map((s) => String(s ?? "").trim())
+        .filter(Boolean)
+        .map((s) => ({ jc_code: s, jc_name: s }));
+    }
+
+    const raw =
+      data.categories ??
+      data.jobCats ??
+      data.job_cats ??
+      data.jobcats ??
+      data.job_categories ??
+      null;
+
+    if (!raw) return [];
+
+    if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "object") {
+      const first = raw[0];
+      if ("jc_code" in first && "jc_name" in first) return raw;
+
+      if ("job_cat" in first) {
+        return raw
+          .map((r) => String(r.job_cat ?? "").trim())
+          .filter(Boolean)
+          .map((s) => ({ jc_code: s, jc_name: s }));
+      }
+    }
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map((s) => String(s ?? "").trim())
+        .filter(Boolean)
+        .map((s) => ({ jc_code: s, jc_name: s }));
+    }
+
+    return [];
   };
 
   useEffect(() => {
@@ -186,7 +253,7 @@ export default function CustomPage() {
         if (ignore) return;
 
         setOptions({
-          categories: data.categories ?? [],
+          categories: normalizeCategories(data),
         });
       } catch (e) {
         console.error("jobs categories fetch failed:", e);
@@ -203,40 +270,49 @@ export default function CustomPage() {
     };
   }, []);
 
-  const onSearch = async () => {
-    setHasSearched(true);
+const onSearch = async () => {
+  setHasSearched(true);
 
-    if (!pickedFile) {
-      alert("자기소개서를 업로드해 주세요.");
+  if (!filters.jc_code) {
+    alert("직업별을 선택해 주세요.");
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+
+    const selected = (options.categories || []).find(
+      (c) => String(c.jc_code) === String(filters.jc_code)
+    );
+    const jobCatName = selected?.jc_name || "";
+
+    if (!jobCatName) {
+      alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
       return;
     }
 
-    if (!filters.jc_code) {
-      alert("직업별을 선택해 주세요.");
-      return;
-    }
+    const data = await fetchJson("/api/custom/match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        job_cat: jobCatName, 
+        role_text: filters.role_text ?? "",
+        tech_text: filters.tech_text ?? "",
+        limit: 4,
+      }),
+    });
 
-    setIsLoading(true);
+    const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
+    setJobs(Array.isArray(list) ? list : []);
+  } catch (e) {
+    console.error("match failed:", e);
+    setJobs([]);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    try {
-      const data = await fetchJson("/api/custom/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jc_code: filters.jc_code,
-          limit: 4,
-        }),
-      });
-
-      const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
-      setJobs(Array.isArray(list) ? list : []);
-    } catch (e) {
-      console.error("match failed:", e);
-      setJobs([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <Wrap>
@@ -308,10 +384,15 @@ export default function CustomPage() {
 
 
 
+
+
+
+
+
 // ===================== CSS
 
-const PANEL_W = 460; 
-const CONTAINER_W = 1100; 
+const PANEL_W = 460;
+const CONTAINER_W = 1100;
 
 const Wrap = styled.main`
   width: 100%;
@@ -370,14 +451,12 @@ const Divider = styled.div`
   }
 `;
 
-
 const Panel = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 `;
-
 
 const PanelTitle = styled.h2`
   margin: 0 0 14px;
@@ -460,7 +539,6 @@ const FiltersCenter = styled.div`
   }
 `;
 
-
 const FiltersRow = styled.div`
   width: ${PANEL_W}px;
   display: flex;
@@ -484,7 +562,7 @@ const Select = styled.select`
   outline: none;
   cursor: pointer;
 
-  /* ✅ 3칸 동일 폭 */
+
   flex: 1;
   min-width: 0;
 
@@ -509,7 +587,7 @@ const Input = styled.input`
   color: #374151;
   outline: none;
 
-  /* ✅ 3칸 동일 폭 */
+
   flex: 1;
   min-width: 0;
 
@@ -726,4 +804,3 @@ const EmptyText = styled.p`
   color: var(--muted);
   font-size: 13px;
 `;
-
