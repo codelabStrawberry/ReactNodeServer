@@ -16,7 +16,7 @@ async function parseJsonOrThrow(res) {
   return data;
 }
 
-// ✅ ChatPage.jsx에서 호출: url + pdf + sessionId → POST /chat/start
+// ChatPage.jsx에서 호출: url + pdf + sessionId → POST /chat/start
 // sessionId는 이제 서버에서 생성하므로, 선택적으로 보내거나 생략 가능
 export async function startInterview({ url, file, sessionId }) {
   const form = new FormData();
@@ -32,7 +32,7 @@ export async function startInterview({ url, file, sessionId }) {
   return await parseJsonOrThrow(res);
 }
 
-// ✅ Chatbot.jsx에서 호출: sessionId + message → POST /chat/message
+// Chatbot.jsx에서 호출: sessionId + message → POST /chat/message
 export async function sendInterviewMessage({ sessionId, message }) {
   const res = await fetch(`${import.meta.env.VITE_AI_URL}/chat/message`, {
     method: "POST",
@@ -40,5 +40,23 @@ export async function sendInterviewMessage({ sessionId, message }) {
     body: JSON.stringify({ sessionId, message }),
   });
 
+  return await parseJsonOrThrow(res);
+}
+
+export async function getInterviewHistory({ sessionId }) {
+  const res = await fetch(
+    `${import.meta.env.VITE_AI_URL}/chat/history?sessionId=${encodeURIComponent(
+      sessionId
+    )}`
+  );
+  return await parseJsonOrThrow(res);
+}
+
+export async function terminateInterview({ sessionId }) {
+  const res = await fetch(`${import.meta.env.VITE_AI_URL}/chat/terminate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  });
   return await parseJsonOrThrow(res);
 }

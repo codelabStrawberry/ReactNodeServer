@@ -65,6 +65,10 @@ export const useAuthStore = create((set) => ({
     } catch (e) {
       // 실패해도 프론트는 일단 로그아웃 처리
     } finally {
+      localStorage.removeItem("interview.sessionId");
+      localStorage.removeItem("interview.active");
+      const sid = localStorage.getItem("interview.sessionId");
+      if (sid) localStorage.removeItem(`interview.messages:${sid}`);
       set({ user: null, loading: false, error: null, hasCheckedAuth: true });
     }
   },

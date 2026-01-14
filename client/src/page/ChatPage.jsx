@@ -1,7 +1,10 @@
 import styled from "@emotion/styled";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Chatbot from "../components/Chatbot";
-import { startInterview } from "../api/chat";
+import { startInterview, terminateInterview } from "../api/chat";
+
+const LS_SESSION = "interview.sessionId";
+const LS_ACTIVE = "interview.active";
 
 export default function ChatPage() {
   const [url, setUrl] = useState("");
@@ -13,7 +16,20 @@ export default function ChatPage() {
   const [startPayload, setStartPayload] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  // const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState(
+    () => localStorage.getItem(LS_SESSION) || ""
+  );
+  const [isActive, setIsActive] = useState(
+    () => localStorage.getItem(LS_ACTIVE) === "1"
+  );
+
+  useEffect(() => {
+    if (!sessionId && isActive) {
+      setIsActive(false);
+      localStorage.removeItem(LS_ACTIVE);
+    }
+  }, [sessionId, isActive]);
 
   const handleChange = (e) => {
     const file = e.target.files?.[0];
@@ -40,17 +56,25 @@ export default function ChatPage() {
     try {
       setIsLoading(true);
 
+      // 새 인터뷰는 새 세션으로 시작
       const newSessionId = crypto.randomUUID();
       setSessionId(newSessionId);
+      localStorage.setItem(LS_SESSION, newSessionId);
 
       const data = await startInterview({
         url,
         file: selectedFile,
         sessionId: newSessionId,
       });
-      if (data?.sessionId) setSessionId(data.sessionId);
+
+      const sid = data?.sessionId || newSessionId;
+      setSessionId(sid);
+      localStorage.setItem(LS_SESSION, sid);
 
       setStartPayload(data);
+
+      setIsActive(true);
+      localStorage.setItem(LS_ACTIVE, "1");
     } catch (e) {
       console.error(e);
       alert("면접 시작 중 오류가 발생했습니다.");
@@ -59,25 +83,29 @@ export default function ChatPage() {
     }
   };
 
+  const clearInterviewClientState = () => {
+    setStartPayload(null);
+    setUrl("");
+    setFileName("");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setIsActive(false);
+    localStorage.removeItem(LS_ACTIVE);
+
+    setSessionId("");
+    localStorage.removeItem(LS_SESSION);
+  };
+
   const handleFinish = async () => {
     if (sessionId) {
       try {
-        await fetch(`${import.meta.env.VITE_AI_URL}/chat/finish`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
+        await terminateInterview({ sessionId });
       } catch (e) {
         console.warn("세션 종료 실패", e);
       }
     }
-
-    setStartPayload(null);
-    setUrl("");
-    setFileName("");
-    setSessionId(crypto.randomUUID());
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    clearInterviewClientState();
   };
 
   return (
@@ -134,7 +162,7 @@ export default function ChatPage() {
               <FinishButton
                 type="button"
                 onClick={handleFinish}
-                disabled={isLoading}
+                disabled={isLoading || !isActive}
               >
                 면접 종료
               </FinishButton>
@@ -148,7 +176,7 @@ export default function ChatPage() {
         <Chatbot
           startPayload={startPayload}
           sessionId={sessionId}
-          disabled={!startPayload || isLoading}
+          disabled={!isActive || isLoading}
         />
       </RightWrapper>
     </Container>
