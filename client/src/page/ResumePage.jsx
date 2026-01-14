@@ -129,6 +129,12 @@ export default function ResumePage() {
       return;
     }
 
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      console.log("URL이 유효해서 formData에 추가되었습니다:", url);
+    } else {
+      alert("URL이 http:// 또는 https://로 시작하지 않습니다:");
+      return;
+    }
     const formData = new FormData();
     formData.append("job", categoryKey);
     formData.append("url", url);
