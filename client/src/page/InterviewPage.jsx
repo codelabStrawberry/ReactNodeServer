@@ -428,7 +428,7 @@ export default function InterviewPage() {
                 </HeaderLeft>
               </CardHeader>
 
-              <CardBody>
+              <CardBodyColumn>
                 <FeedbackBox>
                   {fLoading ? (
                     <AnswerPlaceholder> 피드백 생성 중...</AnswerPlaceholder>
@@ -454,7 +454,7 @@ export default function InterviewPage() {
                     {saveLoading ? "저장 중..." : "피드백 저장"}
                   </PrimaryButton>
                 </ActionRow>
-              </CardBody>
+              </CardBodyColumn>
             </Card>
           </BottomGrid>
         </Main>
@@ -710,6 +710,10 @@ const ActionRow = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+
+  &.pushBottom {
+    margin-top: auto; /* ✅ 핵심 */
+  }
 `
 
 const PrimaryButton = styled.button`
@@ -825,10 +829,16 @@ const TextArea = styled.textarea`
     border-color: var(--strawberry-color);
   }
 `
-
 const FeedbackBox = styled.div`
-  height: 280px;
+  flex: 1; /* ✅ 남는 공간 채우기 */
+  min-height: 308px; /* ✅ 기존 높이 느낌 유지(최소) */
+  margin-bottom: 7px;
   border-radius: 12px;
   background: #f3f3f3;
   overflow: auto;
+`
+const CardBodyColumn = styled(CardBody)`
+  display: flex;
+  flex-direction: column;
+  height: 360px; /* ✅ 원하는 카드 내부 높이(필수) */
 `
