@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { sendInterviewMessage, getInterviewHistory } from "../api/chat";
 import { generateId } from "../api/uuid";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function Chatbot({ startPayload, sessionId, disabled }) {
   const [input, setInput] = useState("");
@@ -231,16 +233,29 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
             ) : (
               <>
                 <BbContent>
-                  {m.text}
-                  {m.role === "assistant" && (
-                    <SpeakButton
-                      onClick={() => speakText(m.text, m.id)}
-                      aria-label={m.isPlaying ? "음성 정지" : "음성 재생"}
-                      $isPlaying={m.isPlaying}
-                    >
-                      {m.isPlaying ? "⏹" : "▶️"}
-                    </SpeakButton>
-                  )}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "flex-end",
+                      gap: 4,
+                    }}
+                  >
+                    <MarkdownBody className="markdown-body">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {m.text}
+                      </ReactMarkdown>
+                    </MarkdownBody>
+
+                    {m.role === "assistant" && (
+                      <SpeakButton
+                        onClick={() => speakText(m.text, m.id)}
+                        aria-label={m.isPlaying ? "음성 정지" : "음성 재생"}
+                        $isPlaying={m.isPlaying}
+                      >
+                        {m.isPlaying ? "⏹" : "▶️"}
+                      </SpeakButton>
+                    )}
+                  </div>
                 </BbContent>
               </>
             )}
@@ -345,6 +360,17 @@ const Bubble = styled.div`
 const BbRole = styled.div``;
 
 const BbContent = styled.div``;
+const MarkdownBody = styled.div`
+  /* 기본 문단 여백 제거 */
+  & p {
+    margin: 0;
+  }
+
+  /* 마지막 요소 아래 여백 제거 */
+  & > :last-child {
+    margin-bottom: 0;
+  }
+`;
 
 const SpeakButton = styled.button`
   background: none;
