@@ -74,7 +74,7 @@ function FiltersBox({ value, onChange, options, loading }) {
 
           <Input
             type="text"
-            placeholder="직무를 입력해 주세요."
+            placeholder="매칭 키워드"
             value={value.role_text ?? ""}
             onChange={(e) =>
               onChange({
@@ -114,7 +114,13 @@ function JobCard({ job }) {
   return (
     <JobCardWrap>
       <JobTop>
-        <JobTitle>{title}</JobTitle>
+        {/* ✅ 타이틀에 아이콘 추가 */}
+        <JobTitle>
+          <TitleRow>
+            <TitleIcon aria-hidden="true">💼</TitleIcon>
+            <TitleText>{title}</TitleText>
+          </TitleRow>
+        </JobTitle>
 
         <BadgeRow>
           {job.badges?.map((b) => (
@@ -127,7 +133,8 @@ function JobCard({ job }) {
 
       <Company>{company}</Company>
 
-      <MetaList>
+      {/* ✅ 지역/경력 영역은 "공간은 유지" + "화면에서만 숨김" */}
+      <MetaList data-hidden="true" aria-hidden="true">
         <MetaLine>
           <MetaIcon aria-hidden="true">📍</MetaIcon>
           <MetaText>{location}</MetaText>
@@ -178,7 +185,6 @@ export default function CustomPage() {
   const showResults = hasSearched;
 
   const API_BASE = "http://localhost:3000";
-
 
   const fetchJson = async (path, init = {}) => {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -270,49 +276,47 @@ export default function CustomPage() {
     };
   }, []);
 
-const onSearch = async () => {
-  setHasSearched(true);
+  const onSearch = async () => {
+    setHasSearched(true);
 
-  if (!filters.jc_code) {
-    alert("직업별을 선택해 주세요.");
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-
-    const selected = (options.categories || []).find(
-      (c) => String(c.jc_code) === String(filters.jc_code)
-    );
-    const jobCatName = selected?.jc_name || "";
-
-    if (!jobCatName) {
-      alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
+    if (!filters.jc_code) {
+      alert("직업별을 선택해 주세요.");
       return;
     }
 
-    const data = await fetchJson("/api/custom/match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        job_cat: jobCatName, 
-        role_text: filters.role_text ?? "",
-        tech_text: filters.tech_text ?? "",
-        limit: 4,
-      }),
-    });
+    setIsLoading(true);
 
-    const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
-    setJobs(Array.isArray(list) ? list : []);
-  } catch (e) {
-    console.error("match failed:", e);
-    setJobs([]);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      const selected = (options.categories || []).find(
+        (c) => String(c.jc_code) === String(filters.jc_code)
+      );
+      const jobCatName = selected?.jc_name || "";
 
+      if (!jobCatName) {
+        alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
+        return;
+      }
+
+      const data = await fetchJson("/api/custom/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_cat: jobCatName,
+          role_text: filters.role_text ?? "",
+          tech_text: filters.tech_text ?? "",
+          limit: 4,
+        }),
+      });
+
+      const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
+      setJobs(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error("match failed:", e);
+      setJobs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Wrap>
@@ -380,14 +384,6 @@ const onSearch = async () => {
     </Wrap>
   );
 }
-
-
-
-
-
-
-
-
 
 // ===================== CSS
 
@@ -562,7 +558,6 @@ const Select = styled.select`
   outline: none;
   cursor: pointer;
 
-
   flex: 1;
   min-width: 0;
 
@@ -586,7 +581,6 @@ const Input = styled.input`
   font-size: 12px;
   color: #374151;
   outline: none;
-
 
   flex: 1;
   min-width: 0;
@@ -672,6 +666,7 @@ const JobCardWrap = styled.article`
   background: #ffffff;
   padding: 14px 14px 12px;
   min-height: 150px;
+  box-sizing: border-box;
 `;
 
 const JobTop = styled.div`
@@ -687,6 +682,22 @@ const JobTitle = styled.h3`
   font-weight: 900;
   letter-spacing: -0.2px;
   color: #111827;
+`;
+
+const TitleRow = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TitleIcon = styled.span`
+  font-size: 16px;
+  line-height: 1;
+  transform: translateY(1px);
+`;
+
+const TitleText = styled.span`
+  display: inline-block;
 `;
 
 const BadgeRow = styled.div`
@@ -727,6 +738,14 @@ const MetaList = styled.div`
   margin-top: 10px;
   display: grid;
   gap: 6px;
+
+  /* ✅ 원래 2줄 높이만큼 항상 확보 (환경별 line-height 차이로 줄어드는 것 방지) */
+  min-height: 38px;
+
+  &[data-hidden="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
 `;
 
 const MetaLine = styled.div`

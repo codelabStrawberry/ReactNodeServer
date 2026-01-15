@@ -1,4 +1,4 @@
-// custom_router.js
+// server/src/routes/custom_router.js
 const express = require("express");
 const router = express.Router();
 
@@ -25,12 +25,11 @@ function toPositiveInt(v, fallback) {
   return i > 0 ? i : fallback;
 }
 
-/**
- * GET /api/custom/jobs
- * - 직업별(job_cat) 목록 내려주고,
- * - (선택) job_cat 쿼리 있으면 해당 직업별 직무키워드(job_keyword)도 같이 내려줌
 
- */
+
+
+
+
 router.get("/jobs", async (req, res) => {
   try {
     const job_cat = toOptionalString(req.query.job_cat);
@@ -46,6 +45,8 @@ router.get("/jobs", async (req, res) => {
 });
 
 
+
+
 router.get("/job_categories", async (req, res) => {
   try {
     const jobCats = await selectJobCats();
@@ -57,10 +58,13 @@ router.get("/job_categories", async (req, res) => {
 });
 
 
+
+
 router.get("/job_keywords", async (req, res) => {
   try {
     const job_cat = toOptionalString(req.query.job_cat);
-    if (!job_cat) return res.status(400).json({ message: "job_cat는 필수입니다." });
+    if (!job_cat)
+      return res.status(400).json({ message: "job_cat는 필수입니다." });
 
     const keywords = await selectKeywordsByJobCat(job_cat);
     return res.json(keywords);
@@ -71,11 +75,25 @@ router.get("/job_keywords", async (req, res) => {
 });
 
 
+
+
 router.post("/match", async (req, res) => {
   try {
     const job_cat = toOptionalString(req.body?.job_cat);
+
+
     const role_text = toTrimmedString(req.body?.role_text);
     const tech_text = toTrimmedString(req.body?.tech_text);
+
+
+    const role_keywords = Array.isArray(req.body?.role_keywords)
+      ? req.body.role_keywords
+      : null;
+
+    const tech_keywords = Array.isArray(req.body?.tech_keywords)
+      ? req.body.tech_keywords
+      : null;
+
     const limit = toPositiveInt(req.body?.limit, 4);
 
     if (!job_cat) {
@@ -86,6 +104,8 @@ router.post("/match", async (req, res) => {
       job_cat,
       role_text,
       tech_text,
+      role_phrases: role_keywords,
+      tech_phrases: tech_keywords,
       limit,
     });
 
