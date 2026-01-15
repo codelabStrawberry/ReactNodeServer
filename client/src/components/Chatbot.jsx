@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { sendInterviewMessage, getInterviewHistory } from "../api/chat";
+import { generateId } from "../api/uuid";
 
 export default function Chatbot({ startPayload, sessionId, disabled }) {
   const [input, setInput] = useState("");
@@ -30,7 +31,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
 
         const history = data?.history || [];
         const restored = history.map((h) => ({
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: h.role === "assistant" ? "assistant" : "user",
           text: h.content,
           isPlaying: false,
@@ -59,7 +60,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
       if (prev.length > 0) return prev;
       return [
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: "assistant",
           text: readyText,
           isPlaying: false,
@@ -96,7 +97,7 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: "assistant",
           text: "세션이 없어요. 먼저 '채팅 시작'을 눌러주세요.",
           isPlaying: false,
@@ -105,8 +106,8 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
       return;
     }
 
-    const userMsgId = crypto.randomUUID();
-    const typingId = crypto.randomUUID();
+    const userMsgId = generateId();
+    const typingId = generateId();
 
     setMessages((prev) => [
       ...prev,
@@ -229,17 +230,18 @@ export default function Chatbot({ startPayload, sessionId, disabled }) {
               </span>
             ) : (
               <>
-                <BbContent>{m.text}</BbContent>
-
-                {m.role === "assistant" && (
-                  <SpeakButton
-                    onClick={() => speakText(m.text, m.id)}
-                    aria-label={m.isPlaying ? "음성 정지" : "음성 재생"}
-                    $isPlaying={m.isPlaying}
-                  >
-                    {m.isPlaying ? "⏹" : "▶️"}
-                  </SpeakButton>
-                )}
+                <BbContent>
+                  {m.text}
+                  {m.role === "assistant" && (
+                    <SpeakButton
+                      onClick={() => speakText(m.text, m.id)}
+                      aria-label={m.isPlaying ? "음성 정지" : "음성 재생"}
+                      $isPlaying={m.isPlaying}
+                    >
+                      {m.isPlaying ? "⏹" : "▶️"}
+                    </SpeakButton>
+                  )}
+                </BbContent>
               </>
             )}
           </Bubble>
@@ -348,12 +350,9 @@ const SpeakButton = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 18px;
   color: ${({ $isPlaying }) => ($isPlaying ? "#ff4d4f" : "inherit")};
   opacity: 0.7;
   transition: all 0.2s;
-  margin-top: auto;
-  padding: 4px;
 
   &:hover {
     opacity: 1;

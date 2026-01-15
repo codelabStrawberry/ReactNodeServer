@@ -129,6 +129,12 @@ export default function ResumePage() {
       return;
     }
 
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      console.log("URL이 유효해서 formData에 추가되었습니다:", url);
+    } else {
+      alert("URL이 http:// 또는 https://로 시작하지 않습니다:");
+      return;
+    }
     const formData = new FormData();
     formData.append("job", categoryKey);
     formData.append("url", url);
@@ -166,7 +172,7 @@ export default function ResumePage() {
       <Container>
         <InputWrapper>
           <Title>
-            이력서 & 자기소개서 <Highlight>첨삭 서비스</Highlight>
+            자기소개서 & 취업공고 <Highlight>종합 피드백</Highlight>
           </Title>
           <Content>
             지원하는 채용 공고를 기반으로 자기소개서의 강점과 약점을 정확하게

@@ -2,9 +2,12 @@ import styled from "@emotion/styled";
 import { useRef, useState, useEffect } from "react";
 import Chatbot from "../components/Chatbot";
 import { startInterview, terminateInterview } from "../api/chat";
+import { getUuid } from "../api/sid";
 
 const LS_SESSION = "interview.sessionId";
 const LS_ACTIVE = "interview.active";
+
+const LOADING_GIF = "../public/assets/img/loading.gif";
 
 export default function ChatPage() {
   const [url, setUrl] = useState("");
@@ -47,6 +50,7 @@ export default function ChatPage() {
     setSelectedFile(file);
   };
 
+  const [isStarting, setIsStarting] = useState(false); // 시작 버튼 전용 로딩 상태
   const handleStart = async () => {
     if (!url || !selectedFile) {
       alert("URL과 PDF 파일을 모두 입력해주세요.");
@@ -54,10 +58,11 @@ export default function ChatPage() {
     }
 
     try {
+      setIsStarting(true); // ← 여기서 로딩 시작
       setIsLoading(true);
 
       // 새 인터뷰는 새 세션으로 시작
-      const newSessionId = crypto.randomUUID();
+      const newSessionId = await getUuid();
       setSessionId(newSessionId);
       localStorage.setItem(LS_SESSION, newSessionId);
 
@@ -79,6 +84,7 @@ export default function ChatPage() {
       console.error(e);
       alert("면접 시작 중 오류가 발생했습니다.");
     } finally {
+      setIsStarting(false); // ← 성공/실패 상관없이 로딩 종료
       setIsLoading(false);
     }
   };
@@ -110,6 +116,12 @@ export default function ChatPage() {
 
   return (
     <Container>
+      {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <LeftWrapper>
         <LeftWrap>
           <Title>
@@ -303,4 +315,15 @@ const RightWrapper = styled.div`
   flex: 1 1 0;
   min-width: 0;
   padding: 10px;
+`;
+
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
