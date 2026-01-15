@@ -114,7 +114,7 @@ function JobCard({ job }) {
   return (
     <JobCardWrap>
       <JobTop>
-        {/* ✅ 타이틀에 아이콘 추가 */}
+
         <JobTitle>
           <TitleRow>
             <TitleIcon aria-hidden="true">💼</TitleIcon>
@@ -133,7 +133,6 @@ function JobCard({ job }) {
 
       <Company>{company}</Company>
 
-      {/* ✅ 지역/경력 영역은 "공간은 유지" + "화면에서만 숨김" */}
       <MetaList data-hidden="true" aria-hidden="true">
         <MetaLine>
           <MetaIcon aria-hidden="true">📍</MetaIcon>
@@ -384,6 +383,9 @@ export default function CustomPage() {
     </Wrap>
   );
 }
+
+
+
 
 // ===================== CSS
 
@@ -739,7 +741,7 @@ const MetaList = styled.div`
   display: grid;
   gap: 6px;
 
-  /* ✅ 원래 2줄 높이만큼 항상 확보 (환경별 line-height 차이로 줄어드는 것 방지) */
+
   min-height: 38px;
 
   &[data-hidden="true"] {
