@@ -215,7 +215,7 @@ const JobSelect = styled.select`
 
 const ChartWrapper = styled.div`
   width: 50%;
-  height: 400px
+  height: 350px
 `;
 
 const JobChartTitle = styled.h2`
@@ -244,7 +244,7 @@ const CareerTitle = styled.h1`
 `;
 
 const CareerContext = styled.div`
-  min-height: 400px;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   margin-top: 2em;
