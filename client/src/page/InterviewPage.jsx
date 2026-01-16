@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
+const LOADING_GIF = "../public/assets/img/loading.gif"
 
 export default function InterviewPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -22,10 +23,10 @@ export default function InterviewPage() {
 
   // 피드백 (요약&정리)
   const [feedback, setFeedback] = useState("")
-  const [fLoading, setFLoading] = useState("")
+  const [fLoading, setFLoading] = useState(false)
 
   // (선택) 저장
-  const [saveLoading, setSaveLoading] = useState("")
+  const [saveLoading, setSaveLoading] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
 
   // AI 질문 생성
@@ -109,6 +110,8 @@ export default function InterviewPage() {
     return true
   }
 
+  const [isStarting, setIsStarting] = useState(false)
+
   const handleGenerateQuestions = async () => {
     if (!validateCommon()) return
 
@@ -125,6 +128,7 @@ export default function InterviewPage() {
       setUserAnswer("")
       setFeedback("")
       setSaveMsg("")
+      setIsStarting(true)
 
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
       const jobName = selected?.jc_name || selected?.jc_code || ""
@@ -134,7 +138,7 @@ export default function InterviewPage() {
       form.append("job_name", jobName)
       form.append("url", url.trim())
       form.append("file", resumeFile)
-      form.append("n_questions", "6")
+      form.append("n_questions", "4")
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/questions`,
@@ -165,6 +169,7 @@ export default function InterviewPage() {
       setActionError(e?.message || "질문 생성 중 오류")
     } finally {
       setQLoading(false) // 이게 없으면 영원히 생성중
+      setIsStarting(false)
     }
   }
 
@@ -177,6 +182,7 @@ export default function InterviewPage() {
       setActionError("")
       setFeedback("")
       setSaveMsg("")
+      setIsStarting(true)
 
       if (!questions.length) {
         setActionError("먼저 질문을 생성합니다.")
@@ -200,6 +206,18 @@ export default function InterviewPage() {
         setActionError(
           "답변을 조금 더 구체적으로 작성해주세요. (최소 20자 권장)"
         )
+        return
+      }
+      const toErrMsg = (detail) => {
+        if (!detail) return ""
+        if (typeof detail === "string") return detail
+        if (Array.isArray(detail))
+          return detail
+            .map((d) => d?.msg)
+            .filter(Boolean)
+            .join("\n")
+        if (typeof detail === "object") return JSON.stringify(detail)
+        return String(detail)
       }
 
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
@@ -213,28 +231,31 @@ export default function InterviewPage() {
         url: url.trim(),
         resume_text: resumeText,
         jd_text: jdText,
-        questions: [selectedQuestion],
-        use_answer: ua,
+        question: selectedQuestion,
+        user_answer: ua,
       }
 
-      console.log("selectedIdx:", selectedIdx)
-      console.log("selectedQuestion:", questions[selectedIdx])
-      console.log("payload:", payload)
+      // console.log("selectedIdx:", selectedIdx)
+      // console.log("selectedQuestion:", questions[selectedIdx])
+      // console.log("payload:", payload)
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/feedback`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credential: "include",
+          credentials: "include",
           body: JSON.stringify(payload),
         }
       )
 
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(data?.detail || data?.error || "피드백 생성 실패")
+        const msg = toErrMsg(data?.detail) || data?.error || "피드백 생성 실패"
+        throw new Error(msg)
       }
+
+      console.log(data)
 
       // 백엔드가 어떤 키로 주든 대응
       setFeedback(data?.feedback || data?.result || data?.summary || "")
@@ -242,11 +263,18 @@ export default function InterviewPage() {
       setActionError(e.message || "피드백 생성 중 오류")
     } finally {
       setFLoading(false)
+      setIsStarting(false)
     }
   }
 
   return (
     <Page>
+      {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <Shell>
         {/* LEFT */}
         <Side>
@@ -413,7 +441,7 @@ export default function InterviewPage() {
                     onClick={handleGenerateFeedback}
                     disabled={fLoading}
                   >
-                    {fLoading ? "생성 중..." : "답변 생성"}
+                    {fLoading ? "생성 중..." : "피드백 생성"}
                   </PrimaryButton>
                 </ActionRow>
               </CardBody>
@@ -470,13 +498,8 @@ const ErrorText = styled.p`
   font-size: 12px;
   color: #d63b52;
 `
-const SuccessText = styled.p`
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #1a7f37;
-`
 
-/* ---------------- styles (QuestionPage와 최대한 동일 톤) ---------------- */
+/* ---------------- styles ---------------- */
 
 const Page = styled.div`
   width: 100%;
@@ -671,19 +694,6 @@ const LinesBox = styled.div`
   overflow: auto;
 `
 
-const LinesPlaceholder = styled.div`
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-`
-
-const Line = styled.div`
-  height: 1px;
-  background: rgba(17, 17, 17, 0.35);
-  border-radius: 999px;
-`
-
 // const AnswerBox = styled.div`
 //   height: 280px;
 //   border-radius: 12px;
@@ -712,7 +722,7 @@ const ActionRow = styled.div`
   gap: 10px;
 
   &.pushBottom {
-    margin-top: auto; /* ✅ 핵심 */
+    margin-top: auto; /* 핵심 */
   }
 `
 
@@ -735,7 +745,7 @@ const PrimaryButton = styled.button`
     cursor: not-allowed;
   }
 `
-/* ✅ Question list UI */
+/* Question list UI */
 const QuestionList = styled.div`
   padding: 10px;
   display: flex;
@@ -830,8 +840,8 @@ const TextArea = styled.textarea`
   }
 `
 const FeedbackBox = styled.div`
-  flex: 1; /* ✅ 남는 공간 채우기 */
-  min-height: 308px; /* ✅ 기존 높이 느낌 유지(최소) */
+  flex: 1; /*  남는 공간 채우기 */
+  min-height: 308px; /*  기존 높이 느낌 유지(최소) */
   margin-bottom: 7px;
   border-radius: 12px;
   background: #f3f3f3;
@@ -840,5 +850,15 @@ const FeedbackBox = styled.div`
 const CardBodyColumn = styled(CardBody)`
   display: flex;
   flex-direction: column;
-  height: 360px; /* ✅ 원하는 카드 내부 높이(필수) */
+  height: 360px; /* 원하는 카드 내부 높이(필수) */
+`
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
