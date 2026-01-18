@@ -1,27 +1,24 @@
-version: "3.9"
+version: "3.8"
 
 services:
   node:
-    build: ./server
+    image: vawing21/node:latest
     env_file:
       - ./server/.env
+    expose:
+      - "3000"
     networks:
       - backend
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   nginx:
-    build: ./client
+    image: vawing21/nginx:latest
     ports:
       - "80:80"
     depends_on:
       - node
     networks:
       - backend
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
 networks:
   backend:
     driver: bridge
-
