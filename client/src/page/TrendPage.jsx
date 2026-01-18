@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Markdown from "react-markdown";
 
+const LOADING_GIF = "../public/assets/img/loading.gif";
+
 export default function TrendPage() {
   const SARAMIN_CATEGORY = {
     "0": "직업 선택",
@@ -36,6 +38,7 @@ export default function TrendPage() {
   const [career, setCareer] = useState("");
   const [isLoadingJobfit, setIsLoadingJobfit] = useState(false);
   const [isLoadingCareer, setIsLoadingCareer] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     if (selectedJob == "0") {
@@ -50,7 +53,6 @@ export default function TrendPage() {
         try {
           const jobName = SARAMIN_CATEGORY[selectedJob];
           const res = await axios.post(`${import.meta.env.VITE_AI_URL}/trend/jobfit`, { job_cat: jobName });
-          console.log("Job trend response:", res.data);
           if (res.data.error) {
             setJobfit(`트렌드 분석 실패: ${res.data.error}`);
           }
@@ -80,28 +82,43 @@ export default function TrendPage() {
 
     const fetchCareerStrategy = async () => {
       setIsLoadingCareer(true);
+      setIsStarting(true);
       setCareer("");
         try {
           const jobName = SARAMIN_CATEGORY[selectedJob];
           const res = await axios.post(`${import.meta.env.VITE_AI_URL}/trend/career_advice`, { job_cat: jobName });
-          console.log("Career strategy response:", res.data);
           setCareer(res.data.career);
         } catch (error) {
           console.log("Error fetching career strategy:", error);
         }
         setIsLoadingCareer(false);
-      };
-
+    };
     fetchCareerStrategy();    
   }, [selectedJob]);
+  
 
+  useEffect(() => {
+    if (!isLoadingCareer && !isLoadingJobfit) {
+      const timer = setTimeout(() => {
+        setIsStarting(false);
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingJobfit, isLoadingCareer, isStarting]);
 
   const handleJobChange = (e) => {
     setSelectedJob(e.target.value);
+    setIsStarting(true);
   }
 
   return (
-    <Container>
+    <Container>'
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <TitleWrapper>
         <Title>
           <Highlight>취업 트렌드</Highlight> 분석
@@ -151,7 +168,6 @@ export default function TrendPage() {
                 </tbody>
               </StyledTable>
             )}
-
           </JobTrendChart>
         </ChartWrapper>
       </JobAnalysis>
@@ -215,7 +231,7 @@ const JobSelect = styled.select`
 
 const ChartWrapper = styled.div`
   width: 50%;
-  height: 400px
+  height: 350px
 `;
 
 const JobChartTitle = styled.h2`
@@ -244,7 +260,7 @@ const CareerTitle = styled.h1`
 `;
 
 const CareerContext = styled.div`
-  min-height: 400px;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   margin-top: 2em;
@@ -353,4 +369,15 @@ const ScoreText = styled.span`
   font-size: 0.9em;
   color: #888;
   min-width: 45px;
+`;
+
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;

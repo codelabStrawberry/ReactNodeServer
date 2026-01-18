@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import styled from "@emotion/styled"
+const LOADING_GIF = "../public/assets/img/loading.gif"
 
 export default function FeedbackPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -54,11 +55,14 @@ export default function FeedbackPage() {
     fetchJobs()
   }, [])
 
+  const [isStarting, setIsStarting] = useState(false)
+
   // 업로드 버튼 클릭 핸들러 (job_resume 테이블 INSERT)
   const handleUpload = async () => {
     try {
       setUploadError("")
       setUploadedId(null)
+      setIsStarting(true)
 
       if (!job) return setUploadError("직무 역할을 선택해주세요.")
       const text = resume.trim()
@@ -88,6 +92,7 @@ export default function FeedbackPage() {
       setUploadError(e.message || "업로드 중 오류")
     } finally {
       setUploadLoading(false)
+      setIsStarting(false)
     }
   }
 
@@ -121,6 +126,7 @@ export default function FeedbackPage() {
       setActionError("")
       setUrlError("")
       setFeedback("")
+      setIsStarting(true)
 
       // validation
       if (!job) return setActionError("직무 역할을 선택해주세요")
@@ -170,11 +176,18 @@ export default function FeedbackPage() {
       setActionError(e.message || "분석 중 오류가 발생했습니다.")
     } finally {
       setAnalysisLoading(false)
+      setIsStarting(false)
     }
   }
 
   return (
     <Page>
+      {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <Shell>
         <Side>
           <Card>
@@ -578,4 +591,15 @@ const FeedbackError = styled.p`
   font-size: 13px;
   color: #d63b52;
   font-weight: 700;
+`
+
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
