@@ -34,8 +34,7 @@ jobs:
         with:
           host: ${{ secrets.AWS_SERVER_HOST }}
           username: ${{ secrets.AWS_SERVER_USER }}
-          key: |
-            $(echo "${{ secrets.AWS_SSH_KEY }}" | base64 -d)
+          key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           script: |
             docker pull vawing21/node:latest
