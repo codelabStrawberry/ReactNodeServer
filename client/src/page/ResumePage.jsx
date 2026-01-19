@@ -172,7 +172,7 @@ export default function ResumePage() {
       <Container>
         <InputWrapper>
           <Title>
-            이력서 & 자기소개서 <Highlight>첨삭 서비스</Highlight>
+            자기소개서 & 취업공고 <Highlight>종합 피드백</Highlight>
           </Title>
           <Content>
             지원하는 채용 공고를 기반으로 자기소개서의 강점과 약점을 정확하게

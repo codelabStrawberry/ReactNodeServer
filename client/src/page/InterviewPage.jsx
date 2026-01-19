@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
+const LOADING_GIF = "../public/assets/img/loading.gif"
 
 export default function InterviewPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -17,6 +18,17 @@ export default function InterviewPage() {
   const [resumeFile, setResumeFile] = useState(null)
   const [fileError, setFileError] = useState("")
 
+  // 사용자 답변 입력
+  const [userAnswer, setUserAnswer] = useState("")
+
+  // 피드백 (요약&정리)
+  const [feedback, setFeedback] = useState("")
+  const [fLoading, setFLoading] = useState(false)
+
+  // (선택) 저장
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [saveMsg, setSaveMsg] = useState("")
+
   // AI 질문 생성
   const [resumeText, setResumeText] = useState("")
   const [jdText, setJdText] = useState("")
@@ -24,9 +36,9 @@ export default function InterviewPage() {
   // 결과
   const [questions, setQuestions] = useState([]) // ["질문1", "질문2", ...]
   const [selectedIdx, setSelectedIdx] = useState(null)
-  const [answer, setAnswer] = useState("") // AI 예상 답변 결과 텍스트
+  // const [answer, setAnswer] = useState("") // AI 예상 답변 결과 텍스트
   const [qLoading, setQLoading] = useState(false)
-  const [aLoading, setALoading] = useState(false)
+  // const [aLoading, setALoading] = useState(false)
   const [actionError, setActionError] = useState("")
 
   useEffect(() => {
@@ -98,6 +110,8 @@ export default function InterviewPage() {
     return true
   }
 
+  const [isStarting, setIsStarting] = useState(false)
+
   const handleGenerateQuestions = async () => {
     if (!validateCommon()) return
 
@@ -111,7 +125,10 @@ export default function InterviewPage() {
       setActionError("")
       setQuestions([])
       setSelectedIdx(null)
-      setAnswer("")
+      setUserAnswer("")
+      setFeedback("")
+      setSaveMsg("")
+      setIsStarting(true)
 
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
       const jobName = selected?.jc_name || selected?.jc_code || ""
@@ -121,7 +138,7 @@ export default function InterviewPage() {
       form.append("job_name", jobName)
       form.append("url", url.trim())
       form.append("file", resumeFile)
-      form.append("n_questions", "6")
+      form.append("n_questions", "4")
 
       const res = await fetch(
         `${import.meta.env.VITE_AI_URL}/interview/questions`,
@@ -152,31 +169,55 @@ export default function InterviewPage() {
       setActionError(e?.message || "질문 생성 중 오류")
     } finally {
       setQLoading(false) // 이게 없으면 영원히 생성중
+      setIsStarting(false)
     }
   }
 
-  // AI 예상 답변 생성(질문 결과 기반)
-  const handleGenerateAnswer = async () => {
+  // 피드백 생성 핸들러 (사용자 답변 기반)
+  const handleGenerateFeedback = async () => {
     if (!validateCommon()) return
 
     try {
-      setALoading(true)
+      setFLoading(true)
       setActionError("")
-      setAnswer("")
+      setFeedback("")
+      setSaveMsg("")
+      setIsStarting(true)
 
       if (!questions.length) {
-        setActionError("먼저 질문 생성이 필요합니다.")
+        setActionError("먼저 질문을 생성합니다.")
         return
       }
-
       if (selectedIdx === null) {
-        setActionError("답변을 생성할 질문을 선택해주세요.")
+        setActionError("피드백을 생성할 질문을 선택해주세요.")
         return
       }
-
-      if (!resumeText.trim()) {
-        setActionError("질문 생성 후 다시 시도해주세요. (resume_text 없음)")
+      const q = (questions[selectedIdx] || "").trim()
+      if (!q) {
+        setActionError("선택된 질문이 올바르지 않습니다.")
         return
+      }
+      if (!resumeText.trim()) {
+        setActionError("질문 생성 후 다시 시도해주세요.(resume_text 없음)")
+        return
+      }
+      const ua = (userAnswer || "").trim()
+      if (ua.length < 20) {
+        setActionError(
+          "답변을 조금 더 구체적으로 작성해주세요. (최소 20자 권장)"
+        )
+        return
+      }
+      const toErrMsg = (detail) => {
+        if (!detail) return ""
+        if (typeof detail === "string") return detail
+        if (Array.isArray(detail))
+          return detail
+            .map((d) => d?.msg)
+            .filter(Boolean)
+            .join("\n")
+        if (typeof detail === "object") return JSON.stringify(detail)
+        return String(detail)
       }
 
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
@@ -190,16 +231,16 @@ export default function InterviewPage() {
         url: url.trim(),
         resume_text: resumeText,
         jd_text: jdText,
-        questions: [selectedQuestion],
-        // questions: [selectedQuestion],
+        question: selectedQuestion,
+        user_answer: ua,
       }
 
-      console.log("selectedIdx:", selectedIdx)
-      console.log("selectedQuestion:", questions[selectedIdx])
-      console.log("payload:", payload)
+      // console.log("selectedIdx:", selectedIdx)
+      // console.log("selectedQuestion:", questions[selectedIdx])
+      // console.log("payload:", payload)
 
       const res = await fetch(
-        `${import.meta.env.VITE_AI_URL}/interview/answer`,
+        `${import.meta.env.VITE_AI_URL}/interview/feedback`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -209,19 +250,31 @@ export default function InterviewPage() {
       )
 
       const data = await res.json().catch(() => ({}))
-      if (!res.ok)
-        throw new Error(data?.detail || data?.error || "답변 생성 실패")
+      if (!res.ok) {
+        const msg = toErrMsg(data?.detail) || data?.error || "피드백 생성 실패"
+        throw new Error(msg)
+      }
 
-      setAnswer(data?.answer || data?.result || "")
+      console.log(data)
+
+      // 백엔드가 어떤 키로 주든 대응
+      setFeedback(data?.feedback || data?.result || data?.summary || "")
     } catch (e) {
-      setActionError(e.message || "답변 생성 중 오류")
+      setActionError(e.message || "피드백 생성 중 오류")
     } finally {
-      setALoading(false)
+      setFLoading(false)
+      setIsStarting(false)
     }
   }
 
   return (
     <Page>
+      {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <Shell>
         {/* LEFT */}
         <Side>
@@ -307,6 +360,7 @@ export default function InterviewPage() {
 
         {/* RIGHT */}
         <Main>
+          {/* 상단: 질문 리스트 */}
           <Card>
             <CardHeader>
               <HeaderLeft>
@@ -352,36 +406,85 @@ export default function InterviewPage() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <HeaderLeft>
-                <IconBox aria-hidden>💬</IconBox>
-                <CardTitle>AI 예상 답변</CardTitle>
-              </HeaderLeft>
-            </CardHeader>
+          {/* 하단: 2열 카드 */}
+          <BottomGrid>
+            {/* 좌: 선택된 질문&답변(사용자 입력) */}
+            <Card>
+              <CardHeader>
+                <HeaderLeft>
+                  <IconBox aria-hidden>✍️</IconBox>
+                  <CardTitle>선택된 질문&답변</CardTitle>
+                </HeaderLeft>
+              </CardHeader>
 
-            <CardBody>
-              <AnswerBox>
-                {aLoading ? (
-                  <AnswerPlaceholder>답변 생성 중...</AnswerPlaceholder>
-                ) : answer ? (
-                  <ResultPre>{answer}</ResultPre>
-                ) : (
-                  <AnswerPlaceholder />
-                )}
-              </AnswerBox>
+              <CardBody>
+                <MiniLabel>선택된 질문</MiniLabel>
+                <MiniBox>
+                  {selectedIdx === null
+                    ? "질문을 선택해주세요."
+                    : questions[selectedIdx] || ""}
+                </MiniBox>
 
-              <ActionRow>
-                <PrimaryButton
-                  type="button"
-                  onClick={handleGenerateAnswer}
-                  disabled={aLoading}
-                >
-                  {aLoading ? "생성 중..." : "답변 생성"}
-                </PrimaryButton>
-              </ActionRow>
-            </CardBody>
-          </Card>
+                <MiniLabel style={{ marginTop: 12 }}>내 답변 입력 </MiniLabel>
+                <TextArea
+                  placeholder="선택한 질문에 대한 답변을 작성하세요."
+                  value={userAnswer}
+                  onChange={(e) => {
+                    setUserAnswer(e.target.value)
+                    if (actionError) setActionError("")
+                  }}
+                />
+
+                <ActionRow>
+                  <PrimaryButton
+                    type="button"
+                    onClick={handleGenerateFeedback}
+                    disabled={fLoading}
+                  >
+                    {fLoading ? "생성 중..." : "피드백 생성"}
+                  </PrimaryButton>
+                </ActionRow>
+              </CardBody>
+            </Card>
+
+            {/* 우: 피드백 요약&정리 */}
+            <Card>
+              <CardHeader>
+                <HeaderLeft>
+                  <IconBox aria-hidden>🧾</IconBox>
+                  <CardTitle> 피드백 요약&정리</CardTitle>
+                </HeaderLeft>
+              </CardHeader>
+
+              <CardBodyColumn>
+                <FeedbackBox>
+                  {fLoading ? (
+                    <AnswerPlaceholder> 피드백 생성 중...</AnswerPlaceholder>
+                  ) : feedback ? (
+                    <ResultPre>{feedback}</ResultPre>
+                  ) : (
+                    <AnswerPlaceholder />
+                  )}
+                </FeedbackBox>
+
+                <ActionRow>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => {
+                      // 저장 API 붙일 거면 여기서 호출
+                      // 일단 임시: UI 메시지만
+                      setSaveMsg(
+                        "저장 기능은 백엔드 저장 API 연결 후 활성화됩니다."
+                      )
+                    }}
+                    disabled={saveLoading}
+                  >
+                    {saveLoading ? "저장 중..." : "피드백 저장"}
+                  </PrimaryButton>
+                </ActionRow>
+              </CardBodyColumn>
+            </Card>
+          </BottomGrid>
         </Main>
       </Shell>
     </Page>
@@ -395,13 +498,8 @@ const ErrorText = styled.p`
   font-size: 12px;
   color: #d63b52;
 `
-const SuccessText = styled.p`
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #1a7f37;
-`
 
-/* ---------------- styles (QuestionPage와 최대한 동일 톤) ---------------- */
+/* ---------------- styles ---------------- */
 
 const Page = styled.div`
   width: 100%;
@@ -596,25 +694,12 @@ const LinesBox = styled.div`
   overflow: auto;
 `
 
-const LinesPlaceholder = styled.div`
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-`
-
-const Line = styled.div`
-  height: 1px;
-  background: rgba(17, 17, 17, 0.35);
-  border-radius: 999px;
-`
-
-const AnswerBox = styled.div`
-  height: 280px;
-  border-radius: 12px;
-  background: #f3f3f3;
-  overflow: auto;
-`
+// const AnswerBox = styled.div`
+//   height: 280px;
+//   border-radius: 12px;
+//   background: #f3f3f3;
+//   overflow: auto;
+// `
 
 const AnswerPlaceholder = styled.div`
   height: 100%;
@@ -635,6 +720,10 @@ const ActionRow = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+
+  &.pushBottom {
+    margin-top: auto; /* 핵심 */
+  }
 `
 
 const PrimaryButton = styled.button`
@@ -656,7 +745,7 @@ const PrimaryButton = styled.button`
     cursor: not-allowed;
   }
 `
-/* ✅ Question list UI */
+/* Question list UI */
 const QuestionList = styled.div`
   padding: 10px;
   display: flex;
@@ -704,4 +793,72 @@ const QText = styled.div`
   line-height: 1.5;
   color: #222;
   font-weight: ${(p) => (p.$active ? 800 : 600)};
+`
+const BottomGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const MiniLabel = styled.div`
+  font-size: 12px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 6px;
+`
+
+const MiniBox = styled.div`
+  width: 100%;
+  min-height: 70px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f3f3f3;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #222;
+  white-space: pre-wrap;
+  word-break: break-word;
+`
+
+const TextArea = styled.textarea`
+  width: 100%;
+  height: 180px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: var(--strawberry-color);
+  }
+`
+const FeedbackBox = styled.div`
+  flex: 1; /*  남는 공간 채우기 */
+  min-height: 308px; /*  기존 높이 느낌 유지(최소) */
+  margin-bottom: 7px;
+  border-radius: 12px;
+  background: #f3f3f3;
+  overflow: auto;
+`
+const CardBodyColumn = styled(CardBody)`
+  display: flex;
+  flex-direction: column;
+  height: 360px; /* 원하는 카드 내부 높이(필수) */
+`
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
