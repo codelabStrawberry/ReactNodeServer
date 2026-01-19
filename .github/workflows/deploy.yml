@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy (DEBUG)
 
 on:
   push:
@@ -12,39 +12,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔐 Docker Hub 로그인
-      - name: Docker Login
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-      # 🏗️ 이미지 빌드
-      - name: Build Images
+      # 🔎 1. Secrets 길이 확인
+      - name: Debug SSH Key Length
         run: |
-          docker build -t vawing21/node:latest ./server
-          docker build -t vawing21/nginx:latest ./client
+          echo "===== SSH KEY LENGTH ====="
+          echo "${{ secrets.AWS_SSH_KEY }}" | wc -c
 
-      # 📤 Docker Hub 푸시
-      - name: Push Images
-        run: |
-          docker push vawing21/node:latest
-          docker push vawing21/nginx:latest
-
-      # 🔑 SSH 키 파일 생성 (CRLF 제거 포함)
+      # 🔑 2. SSH 키 파일 생성
       - name: Prepare SSH key
         run: |
+          echo "===== RAW KEY PREVIEW (FIRST 3 LINES) ====="
+          echo "${{ secrets.AWS_SSH_KEY }}" | head -n 3
+
+          echo "===== RAW KEY PREVIEW (LAST 3 LINES) ====="
+          echo "${{ secrets.AWS_SSH_KEY }}" | tail -n 3
+
           echo "${{ secrets.AWS_SSH_KEY }}" > key.pem
           sed -i 's/\r$//' key.pem
           chmod 600 key.pem
 
-      # 🚀 서버 배포 (네이티브 ssh 사용)
-      - name: SSH Deploy
+          echo "===== FILE INFO ====="
+          ls -l key.pem
+          file key.pem
+
+      # 🔎 3. 키 파싱 테스트
+      - name: Test SSH key parse
         run: |
-          ssh -o StrictHostKeyChecking=no \
+          echo "===== SSH-KEYGEN TEST ====="
+          ssh-keygen -l -f key.pem || true
+          ssh-keygen -y -f key.pem > derived.pub || true
+
+          echo "===== DERIVED PUBLIC KEY ====="
+          cat derived.pub || true
+
+      # 🔎 4. 실제 SSH 접속 테스트 (명령 1줄만)
+      - name: SSH Test Only
+        run: |
+          ssh -vvv -o StrictHostKeyChecking=no \
               -i key.pem \
-              ${{ secrets.AWS_SERVER_USER }}@${{ secrets.AWS_SERVER_HOST }} << 'EOF'
-            whoami
-            pwd
-            docker pull vawing21/node:latest
-            docker pull vawing21/nginx:latest
-            docker compose down
-            docker compose up -d --pull always
-          EOF
+              ${{ secrets.AWS_SERVER_USER }}@${{ secrets.AWS_SERVER_HOST }} \
+              "whoami"
