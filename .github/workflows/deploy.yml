@@ -7,19 +7,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      # 🔐 Docker Hub 로그인 (Access Token 전제)
       - name: Docker Login
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+          -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Build & Push
+      # 🏗️ 이미지 빌드 + latest 태그 명시
+      - name: Build Images
         run: |
-          docker build -t vawing21/node ./server
-          docker build -t vawing21/nginx ./client
-          docker push vawing21/node
-          docker push vawing21/nginx
+          docker build -t vawing21/node:latest ./server
+          docker build -t vawing21/nginx:latest ./client
 
+      # 📤 Docker Hub 푸시
+      - name: Push Images
+        run: |
+          docker push vawing21/node:latest
+          docker push vawing21/nginx:latest
+
+      # 🚀 서버 배포
       - name: SSH Deploy
         uses: appleboy/ssh-action@v1
         with:
@@ -27,6 +37,7 @@ jobs:
           username: ${{ secrets.AWS_SERVER_USER }}
           key: ${{ secrets.AWS_SSH_KEY }}
           script: |
-            docker pull vawing21/node
-            docker pull vawing21/nginx
-            docker-compose up -d --pull always
+            docker pull vawing21/node:latest
+            docker pull vawing21/nginx:latest
+            docker compose down
+            docker compose up -d --pull always
