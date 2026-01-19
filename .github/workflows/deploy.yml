@@ -40,6 +40,9 @@ jobs:
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
           script: |
+            cd /home/ubuntu/ReactNodeServer   # ⬅️ 실제 경로로 수정
+            pwd
+            ls -l
             docker pull vawing21/node:latest
             docker pull vawing21/nginx:latest
             docker compose down
