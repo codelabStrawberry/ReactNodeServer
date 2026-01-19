@@ -46,4 +46,4 @@ jobs:
             docker pull vawing21/node:latest
             docker pull vawing21/nginx:latest
             docker compose down
-            docker compose up -d --pull always
+            docker compose up -d --force-recreate
