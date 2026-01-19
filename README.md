@@ -207,4 +207,14 @@ export 파일
 * board_db_posts.sql
 
 
+## ✅ Elastic Beanstalk 배포
+sudo apt install zip
+1. aws에서 zip 생성
+zip -r deploy.zip . -x ".git/*" "node_modules/*" "client/node_modules/*"
+2. 로컬 PC로 복사
+scp -i aws-key.pem ubuntu@ec2-13-55-35-203.ap-southeast-2.compute.amazonaws.com:/home/ubuntu/ReactNodeServer/deploy.zip  .
+3. Elastic Beanstalk 배포화면 참고
+ - git Issues 주소 : https://github.com/codelabStrawberry/ReactNodeServer/issues/22
+
+
 
