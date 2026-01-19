@@ -198,6 +198,11 @@ export default function ChatPage() {
 const Container = styled.div`
   display: flex;
   gap: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    max-width: 100%;
+  }
 `;
 const LeftWrapper = styled.div`
   flex: 1 1 0;

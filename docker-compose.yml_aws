@@ -2,6 +2,7 @@ version: "3.8"
 
 services:
   node:
+    image: vawing21/node:latest
     build: ./server
     env_file:
       - ./server/.env
@@ -11,6 +12,7 @@ services:
       - backend
 
   nginx:
+    image: vawing21/nginx:latest
     build: ./client
     ports:
       - "80:80"
