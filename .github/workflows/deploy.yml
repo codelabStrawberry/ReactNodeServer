@@ -12,11 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔐 Docker Hub 로그인 (백슬래시 문법 오류 수정)
+      # 🔐 Docker Hub 로그인
       - name: Docker Login
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 🏗️ 이미지 빌드 + latest 태그 명시
+      # 🏗️ 이미지 빌드
       - name: Build Images
         run: |
           docker build -t vawing21/node:latest ./server
@@ -28,16 +28,23 @@ jobs:
           docker push vawing21/node:latest
           docker push vawing21/nginx:latest
 
-      # 🚀 서버 배포
+      # 🔑 SSH 키 파일 생성 (CRLF 제거 포함)
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.AWS_SSH_KEY }}" > key.pem
+          sed -i 's/\r$//' key.pem
+          chmod 600 key.pem
+
+      # 🚀 서버 배포 (네이티브 ssh 사용)
       - name: SSH Deploy
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.AWS_SERVER_HOST }}
-          username: ${{ secrets.AWS_SERVER_USER }}
-          key: ${{ secrets.AWS_SSH_KEY }}
-          port: 22
-          script: |
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -i key.pem \
+              ${{ secrets.AWS_SERVER_USER }}@${{ secrets.AWS_SERVER_HOST }} << 'EOF'
+            whoami
+            pwd
             docker pull vawing21/node:latest
             docker pull vawing21/nginx:latest
             docker compose down
             docker compose up -d --pull always
+          EOF
