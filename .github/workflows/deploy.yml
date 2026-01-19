@@ -12,13 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔎 1. Secrets 길이 확인
+      # 🔎 1. Secrets 길이 & 해시 확인
       - name: Debug SSH Key Length
         run: |
           echo "===== SSH KEY LENGTH ====="
           echo "${{ secrets.AWS_SSH_KEY }}" | wc -c
 
-      # 🔑 2. SSH 키 파일 생성
+          echo "===== SSH KEY SHA256 (for integrity check) ====="
+          echo "${{ secrets.AWS_SSH_KEY }}" | sha256sum
+
+      # 🔑 2. SSH 키 파일 생성 + 포맷 정리
       - name: Prepare SSH key
         run: |
           echo "===== RAW KEY PREVIEW (FIRST 3 LINES) ====="
@@ -27,28 +30,42 @@ jobs:
           echo "===== RAW KEY PREVIEW (LAST 3 LINES) ====="
           echo "${{ secrets.AWS_SSH_KEY }}" | tail -n 3
 
-          echo "${{ secrets.AWS_SSH_KEY }}" > key.pem
+          # 파일로 저장
+          printf "%s\n" "${{ secrets.AWS_SSH_KEY }}" > key.pem
+
+          # CRLF 제거
           sed -i 's/\r$//' key.pem
+
+          # 권한 설정
           chmod 600 key.pem
 
           echo "===== FILE INFO ====="
           ls -l key.pem
           file key.pem
 
-      # 🔎 3. 키 파싱 테스트
+          echo "===== KEY HEAD ====="
+          head -n 5 key.pem
+
+          echo "===== KEY TAIL ====="
+          tail -n 5 key.pem
+
+      # 🔎 3. 키 파싱 테스트 (여기서 실패하면 Secrets 자체가 망가진 거)
       - name: Test SSH key parse
         run: |
           echo "===== SSH-KEYGEN TEST ====="
-          ssh-keygen -l -f key.pem || true
-          ssh-keygen -y -f key.pem > derived.pub || true
+          ssh-keygen -l -f key.pem
 
           echo "===== DERIVED PUBLIC KEY ====="
-          cat derived.pub || true
+          ssh-keygen -y -f key.pem > derived.pub
+          cat derived.pub
 
-      # 🔎 4. 실제 SSH 접속 테스트 (명령 1줄만)
+      # 🔎 4. SSH 실제 연결 테스트 (강제 RSA 알고리즘 포함)
       - name: SSH Test Only
         run: |
-          ssh -vvv -o StrictHostKeyChecking=no \
-              -i key.pem \
-              ${{ secrets.AWS_SERVER_USER }}@${{ secrets.AWS_SERVER_HOST }} \
-              "whoami"
+          ssh -vvv \
+            -o StrictHostKeyChecking=no \
+            -o PubkeyAcceptedAlgorithms=+ssh-rsa \
+            -o HostKeyAlgorithms=+ssh-rsa \
+            -i key.pem \
+            ${{ secrets.AWS_SERVER_USER }}@${{ secrets.AWS_SERVER_HOST }} \
+            "whoami && hostname && id"
