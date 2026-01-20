@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import styled from "@emotion/styled"
+const LOADING_GIF = "/assets/img/loading.gif"
 
 export default function FeedbackPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -35,7 +36,7 @@ export default function FeedbackPage() {
 
         // TODO: 백엔드 주소에 맞게 수정
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/job-categories`
+          `${import.meta.env.VITE_API_URL}/job-categories`,
         )
 
         if (!res.ok) throw new Error("직무 목록을 불러오지 못했습니다.")
@@ -54,11 +55,14 @@ export default function FeedbackPage() {
     fetchJobs()
   }, [])
 
+  const [isStarting, setIsStarting] = useState(false)
+
   // 업로드 버튼 클릭 핸들러 (job_resume 테이블 INSERT)
   const handleUpload = async () => {
     try {
       setUploadError("")
       setUploadedId(null)
+      setIsStarting(true)
 
       if (!job) return setUploadError("직무 역할을 선택해주세요.")
       const text = resume.trim()
@@ -88,6 +92,7 @@ export default function FeedbackPage() {
       setUploadError(e.message || "업로드 중 오류")
     } finally {
       setUploadLoading(false)
+      setIsStarting(false)
     }
   }
 
@@ -121,6 +126,7 @@ export default function FeedbackPage() {
       setActionError("")
       setUrlError("")
       setFeedback("")
+      setIsStarting(true)
 
       // validation
       if (!job) return setActionError("직무 역할을 선택해주세요")
@@ -146,35 +152,56 @@ export default function FeedbackPage() {
 
       // 직무명(선택) - jobOptions에서 찾아서 같이 보냄
       const selected = jobOptions.find((x) => String(x.jc_code) === String(job))
-      const jobName = selected?.jc_name || null
+      const jobName = selected?.jc_name || ""
+
+      const fd = new FormData()
+      fd.append("jc_code", job)
+      fd.append("job_name", jobName ?? "")
+      fd.append("url", urlText)
+      fd.append("resume_text", text)
 
       const res = await fetch(`${import.meta.env.VITE_AI_URL}/resume/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         // 세션/쿠키 안 쓰면 credentials 없어도 됨
         credentials: "include",
-        body: JSON.stringify({
-          jc_code: job,
-          job_name: jobName,
-          url: urlText,
-          resume_text: text,
-        }),
+        body: fd,
       })
 
       const data = await res.json().catch(() => ({}))
-      if (!res.ok)
-        return setActionError(data?.detail || data?.error || "분석 실패")
+
+      if (!res.ok) {
+        const detail = data?.detail
+        const msg = Array.isArray(detail)
+          ? detail
+              .map((d) => d?.msg)
+              .filter(Boolean)
+              .join(", ")
+          : (typeof detail === "string" ? detail : "") ||
+            data?.error ||
+            "분석 실패"
+        return setActionError(msg)
+      }
+
+      // console.log("feedback length:", (data?.jrs_text || "").length)
+      // console.log("feedback preview:", (data?.jrs_text || "").slice(0, 300))
 
       setFeedback(data.feedback || "")
     } catch (e) {
       setActionError(e.message || "분석 중 오류가 발생했습니다.")
     } finally {
       setAnalysisLoading(false)
+      setIsStarting(false)
     }
   }
 
   return (
     <Page>
+      {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
+      {isStarting && (
+        <LoadingOverlay>
+          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+        </LoadingOverlay>
+      )}
       <Shell>
         <Side>
           <Card>
@@ -294,7 +321,7 @@ export default function FeedbackPage() {
                 <PrimaryButton
                   type="button"
                   onClick={handleAnalyze}
-                  disabled={analysisLoading}
+                  disabled={analysisLoading || !canAnalyze}
                   title={
                     !canAnalyze
                       ? "직무 선택, 채용공고 URL, 자기소개서(200~4000자)를 모두 입력해주세요."
@@ -578,4 +605,15 @@ const FeedbackError = styled.p`
   font-size: 13px;
   color: #d63b52;
   font-weight: 700;
+`
+
+const LoadingOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `

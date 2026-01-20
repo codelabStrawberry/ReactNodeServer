@@ -1,14 +1,14 @@
-version: "3.8"
+version: "3.9"
 
 services:
   node:
     image: vawing21/node:latest
     env_file:
       - ./server/.env
-    expose:
-      - "3000"
     networks:
       - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   nginx:
     image: vawing21/nginx:latest
@@ -18,6 +18,8 @@ services:
       - node
     networks:
       - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   backend:
