@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
-const LOADING_GIF = "../public/assets/img/loading.gif"
+const LOADING_GIF = "/assets/img/loading.gif"
 
 export default function InterviewPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -467,7 +467,21 @@ export default function InterviewPage() {
                   )}
                 </FeedbackBox>
 
-                <ActionRow></ActionRow>
+                <ActionRow>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => {
+                      // 저장 API 붙일 거면 여기서 호출
+                      // 일단 임시: UI 메시지만
+                      setSaveMsg(
+                        "저장 기능은 백엔드 저장 API 연결 후 활성화됩니다.",
+                      )
+                    }}
+                    disabled={saveLoading}
+                  >
+                    {saveLoading ? "저장 중..." : "피드백 저장"}
+                  </PrimaryButton>
+                </ActionRow>
               </CardBodyColumn>
             </Card>
           </BottomGrid>
