@@ -1,118 +1,118 @@
-import styled from "@emotion/styled";
-import { useRef, useState, useEffect } from "react";
-import Chatbot from "../components/Chatbot";
-import { startInterview, terminateInterview } from "../api/chat";
-import { getUuid } from "../api/sid";
+import styled from "@emotion/styled"
+import { useRef, useState, useEffect } from "react"
+import Chatbot from "../components/Chatbot"
+import { startInterview, terminateInterview } from "../api/chat"
+import { getUuid } from "../api/sid"
 
-const LS_SESSION = "interview.sessionId";
-const LS_ACTIVE = "interview.active";
+const LS_SESSION = "interview.sessionId"
+const LS_ACTIVE = "interview.active"
 
-const LOADING_GIF = "../public/assets/img/loading.gif";
+const LOADING_GIF = "/assets/img/loading.gif"
 
 export default function ChatPage() {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState("")
 
-  const fileInputRef = useRef(null);
-  const [fileName, setFileName] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null)
+  const [fileName, setFileName] = useState("")
+  const [selectedFile, setSelectedFile] = useState(null)
 
-  const [startPayload, setStartPayload] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [startPayload, setStartPayload] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   // const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [sessionId, setSessionId] = useState(
-    () => localStorage.getItem(LS_SESSION) || ""
-  );
+    () => localStorage.getItem(LS_SESSION) || "",
+  )
   const [isActive, setIsActive] = useState(
-    () => localStorage.getItem(LS_ACTIVE) === "1"
-  );
+    () => localStorage.getItem(LS_ACTIVE) === "1",
+  )
 
   useEffect(() => {
     if (!sessionId && isActive) {
-      setIsActive(false);
-      localStorage.removeItem(LS_ACTIVE);
+      setIsActive(false)
+      localStorage.removeItem(LS_ACTIVE)
     }
-  }, [sessionId, isActive]);
+  }, [sessionId, isActive])
 
   const handleChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]
+    if (!file) return
 
     if (file.type !== "application/pdf") {
-      alert("PDF 파일만 첨부할 수 있습니다.");
-      e.target.value = "";
-      setFileName("");
-      setSelectedFile(null);
-      return;
+      alert("PDF 파일만 첨부할 수 있습니다.")
+      e.target.value = ""
+      setFileName("")
+      setSelectedFile(null)
+      return
     }
 
-    setFileName(file.name);
-    setSelectedFile(file);
-  };
+    setFileName(file.name)
+    setSelectedFile(file)
+  }
 
-  const [isStarting, setIsStarting] = useState(false); // 시작 버튼 전용 로딩 상태
+  const [isStarting, setIsStarting] = useState(false) // 시작 버튼 전용 로딩 상태
   const handleStart = async () => {
     if (!url || !selectedFile) {
-      alert("URL과 PDF 파일을 모두 입력해주세요.");
-      return;
+      alert("URL과 PDF 파일을 모두 입력해주세요.")
+      return
     }
 
     try {
-      setIsStarting(true); // ← 여기서 로딩 시작
-      setIsLoading(true);
+      setIsStarting(true) // ← 여기서 로딩 시작
+      setIsLoading(true)
 
       // 새 인터뷰는 새 세션으로 시작
-      const newSessionId = await getUuid();
-      setSessionId(newSessionId);
-      localStorage.setItem(LS_SESSION, newSessionId);
+      const newSessionId = await getUuid()
+      setSessionId(newSessionId)
+      localStorage.setItem(LS_SESSION, newSessionId)
 
       const data = await startInterview({
         url,
         file: selectedFile,
         sessionId: newSessionId,
-      });
+      })
 
-      const sid = data?.sessionId || newSessionId;
-      setSessionId(sid);
-      localStorage.setItem(LS_SESSION, sid);
+      const sid = data?.sessionId || newSessionId
+      setSessionId(sid)
+      localStorage.setItem(LS_SESSION, sid)
 
-      setStartPayload(data);
+      setStartPayload(data)
 
-      setIsActive(true);
-      localStorage.setItem(LS_ACTIVE, "1");
+      setIsActive(true)
+      localStorage.setItem(LS_ACTIVE, "1")
     } catch (e) {
-      console.error(e);
-      alert("면접 시작 중 오류가 발생했습니다.");
+      console.error(e)
+      alert("면접 시작 중 오류가 발생했습니다.")
     } finally {
-      setIsStarting(false); // ← 성공/실패 상관없이 로딩 종료
-      setIsLoading(false);
+      setIsStarting(false) // ← 성공/실패 상관없이 로딩 종료
+      setIsLoading(false)
     }
-  };
+  }
 
   const clearInterviewClientState = () => {
-    setStartPayload(null);
-    setUrl("");
-    setFileName("");
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setStartPayload(null)
+    setUrl("")
+    setFileName("")
+    setSelectedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
 
-    setIsActive(false);
-    localStorage.removeItem(LS_ACTIVE);
+    setIsActive(false)
+    localStorage.removeItem(LS_ACTIVE)
 
-    setSessionId("");
-    localStorage.removeItem(LS_SESSION);
-  };
+    setSessionId("")
+    localStorage.removeItem(LS_SESSION)
+  }
 
   const handleFinish = async () => {
     if (sessionId) {
       try {
-        await terminateInterview({ sessionId });
+        await terminateInterview({ sessionId })
       } catch (e) {
-        console.warn("세션 종료 실패", e);
+        console.warn("세션 종료 실패", e)
       }
     }
-    clearInterviewClientState();
-  };
+    clearInterviewClientState()
+  }
 
   return (
     <Container>
@@ -192,7 +192,7 @@ export default function ChatPage() {
         />
       </RightWrapper>
     </Container>
-  );
+  )
 }
 
 const Container = styled.div`
@@ -203,7 +203,7 @@ const Container = styled.div`
     flex-direction: column;
     max-width: 100%;
   }
-`;
+`
 const LeftWrapper = styled.div`
   flex: 1 1 0;
   min-width: 0;
@@ -212,33 +212,33 @@ const LeftWrapper = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: center;
-`;
+`
 const LeftWrap = styled.div`
   width: 100%;
   max-width: 600px;
-`;
+`
 const Title = styled.h1`
   margin-bottom: 1.5em;
   text-align: center;
   font-weight: 600;
-`;
+`
 const Highlight = styled.span`
   color: var(--strawberry-color);
-`;
+`
 const Form = styled.form`
   width: 100%;
-`;
+`
 const UrlWrap = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 10px;
-`;
+`
 const UrlLabel = styled.span`
   flex: 2;
   font-size: 14px;
   color: #555;
-`;
+`
 const Input = styled.input`
   flex: 8;
   padding: 8px;
@@ -251,16 +251,16 @@ const Input = styled.input`
     outline: none;
     border-color: var(--strawberry-color);
   }
-`;
+`
 const FileWrap = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 5px;
-`;
+`
 const FileInput = styled.input`
   display: none;
-`;
+`
 const FileLabel = styled.span`
   flex: 8;
   font-size: 14px;
@@ -268,7 +268,7 @@ const FileLabel = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-`;
+`
 const UploadButton = styled.button`
   flex: 2;
   padding: 8px 14px;
@@ -286,13 +286,13 @@ const UploadButton = styled.button`
     opacity: 0.6;
     cursor: not-allowed;
   }
-`;
+`
 const BtnWrap = styled.div`
   display: flex;
   justify-content: center;
   gap: 2em;
   margin-top: 3em;
-`;
+`
 const StartButton = styled.button`
   width: 100%;
   padding: 8px;
@@ -312,15 +312,15 @@ const StartButton = styled.button`
     opacity: 0.6;
     cursor: not-allowed;
   }
-`;
+`
 const FinishButton = styled(StartButton)`
   background-color: var(--strawberry-color);
-`;
+`
 const RightWrapper = styled.div`
   flex: 1 1 0;
   min-width: 0;
   padding: 10px;
-`;
+`
 
 const LoadingOverlay = styled.div`
   position: fixed;
@@ -331,4 +331,4 @@ const LoadingOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-`;
+`

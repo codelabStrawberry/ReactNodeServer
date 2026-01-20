@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
-const LOADING_GIF = "../public/assets/img/loading.gif"
+const LOADING_GIF = "/assets/img/loading.gif"
 
 export default function InterviewPage() {
   // DB에서 받아올 직무 카테고리 목록
@@ -47,7 +47,7 @@ export default function InterviewPage() {
         setJobLoading(true)
         setJobError("")
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/job-categories`
+          `${import.meta.env.VITE_API_URL}/job-categories`,
         )
         if (!res.ok) throw new Error("직무 목록을 불러오지 못했습니다.")
         const data = await res.json()
@@ -145,7 +145,7 @@ export default function InterviewPage() {
         {
           method: "POST",
           body: form,
-        }
+        },
       )
 
       const data = await res.json().catch(() => ({}))
@@ -204,7 +204,7 @@ export default function InterviewPage() {
       const ua = (userAnswer || "").trim()
       if (ua.length < 20) {
         setActionError(
-          "답변을 조금 더 구체적으로 작성해주세요. (최소 20자 권장)"
+          "답변을 조금 더 구체적으로 작성해주세요. (최소 20자 권장)",
         )
         return
       }
@@ -246,7 +246,7 @@ export default function InterviewPage() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(payload),
-        }
+        },
       )
 
       const data = await res.json().catch(() => ({}))
@@ -474,7 +474,7 @@ export default function InterviewPage() {
                       // 저장 API 붙일 거면 여기서 호출
                       // 일단 임시: UI 메시지만
                       setSaveMsg(
-                        "저장 기능은 백엔드 저장 API 연결 후 활성화됩니다."
+                        "저장 기능은 백엔드 저장 API 연결 후 활성화됩니다.",
                       )
                     }}
                     disabled={saveLoading}
