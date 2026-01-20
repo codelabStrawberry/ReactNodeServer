@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import styled from "@emotion/styled"
-const LOADING_GIF = "../public/assets/img/loading.gif"
+const LOADING_GIF = "/assets/img/loading.gif"
 
 export default function InterviewPage() {
   // DB에서 받아올 직무 카테고리 목록
