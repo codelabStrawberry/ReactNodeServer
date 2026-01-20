@@ -2,33 +2,12 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import styled from "@emotion/styled";
 
-const SAMPLE_JOBS = [
-  {
-    id: "job-1",
-    title: "시니어 프론트엔드 개발자",
-    company: "스트로베리",
-    location: "서울 금천구",
-    exp: "5년 이상",
-    badges: ["BEST", "신규 공고"],
-    skills: ["React", "TypeScript", "Node.js", "AWS"],
-  },
-  {
-    id: "job-2",
-    title: "백엔드 개발자 (Node.js)",
-    company: "베네티브",
-    location: "서울 강남구",
-    exp: "3년 이상",
-    badges: ["신규 공고"],
-    skills: ["Node.js", "Express", "MySQL"],
-  },
-];
-
 function UploadBox({ fileName, onPick }) {
   const inputId = useId();
 
   return (
     <Panel>
-      <PanelTitle>
+      <PanelTitle data-align="to-box">
         당신의 <Pink>커리어</Pink>를 <Pink>AI</Pink>에게 보여주세요
       </PanelTitle>
 
@@ -54,96 +33,90 @@ function UploadBox({ fileName, onPick }) {
 }
 
 function FiltersBox({ value, onChange, options, loading }) {
-  const rolesDisabled = !value.jc_code || loading;
-
   return (
     <Panel>
-      <PanelTitle>
+      <PanelTitle data-align="to-box">
         <Pink>조건</Pink>을 선택해 주세요
       </PanelTitle>
 
-      <FiltersGrid>
-        {/* 직업별 */}
-        <Select
-          value={value.jc_code}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              jc_code: e.target.value,
-              jr_code: "",
-            })
-          }
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "직업별"}</option>
-          {(options.categories || []).map((c) => (
-            <option key={c.jc_code} value={c.jc_code}>
-              {c.jc_name}
-            </option>
-          ))}
-        </Select>
+      <FiltersCenter>
+        <FiltersRow>
+          <Select
+            value={value.jc_code}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                jc_code: e.target.value,
+              })
+            }
+            disabled={loading}
+          >
+            <option value="">{loading ? "불러오는 중..." : "직업별"}</option>
+            {(options.categories || []).map((c) => (
+              <option key={c.jc_code} value={c.jc_code}>
+                {c.jc_name}
+              </option>
+            ))}
+          </Select>
 
-        {/* 직무별 */}
-        <Select
-          value={value.jr_code}
-          onChange={(e) => onChange({ ...value, jr_code: e.target.value })}
-          disabled={rolesDisabled}
-        >
-          <option value="">
-            {rolesDisabled ? "직업별 먼저 선택" : "직무별"}
-          </option>
-          {(options.roles || []).map((r) => (
-            <option key={r.jr_code} value={r.jr_code}>
-              {r.jr_name}
-            </option>
-          ))}
-        </Select>
+          <Input
+            type="text"
+            placeholder="기술을 입력해 주세요."
+            value={value.tech_text ?? "Java"}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                tech_text: e.target.value,
+              })
+            }
+            disabled={loading}
+          />
 
-        {/* 고용 형태 */}
-        <Select
-          value={value.jp_employment_type}
-          onChange={(e) =>
-            onChange({ ...value, jp_employment_type: e.target.value })
-          }
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "고용 형태"}</option>
-          {(options.employmentTypes || []).map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </Select>
-
-        {/* 지역 */}
-        <Select
-          value={value.jp_location}
-          onChange={(e) => onChange({ ...value, jp_location: e.target.value })}
-          disabled={loading}
-        >
-          <option value="">{loading ? "불러오는 중..." : "지역"}</option>
-          {(options.locations || []).map((loc) => (
-            <option key={loc} value={loc}>
-              {loc}
-            </option>
-          ))}
-        </Select>
-      </FiltersGrid>
+          <Input
+            type="text"
+            placeholder="매칭 키워드"
+            value={value.role_text ?? "Java"}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                role_text: e.target.value,
+              })
+            }
+            disabled={loading}
+          />
+        </FiltersRow>
+      </FiltersCenter>
     </Panel>
   );
 }
 
 function JobCard({ job }) {
-  const title = job.title ?? job.jp_title ?? job.job_title ?? "제목 없음";
-  const company = job.company ?? job.jp_company ?? job.company_name ?? "회사";
-  const location = job.location ?? job.jp_location ?? "지역";
-  const exp = job.exp ?? job.jp_exp ?? "경력";
-  const skills = job.skills ?? job.jp_skills ?? [];
+  //const title = job.title ?? job.jp_title ?? job.job_title ?? "제목 없음";
+  const title = job.company_name;
+  const company = job.core_competencies;
+  const skillsRaw = job.required_tech_stack ?? [];
+  const skills = Array.isArray(skillsRaw)
+    ? skillsRaw
+    : String(skillsRaw ?? "")
+        .split(/[,|\/]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+  const onOpen = () => {
+    const url = job.url;
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <JobCardWrap>
       <JobTop>
-        <JobTitle>{title}</JobTitle>
+        <JobTitle>
+          <TitleRow>
+            <TitleIcon aria-hidden="true">💼</TitleIcon>
+            <TitleText>{title}</TitleText>
+          </TitleRow>
+        </JobTitle>
 
         <BadgeRow>
           {job.badges?.map((b) => (
@@ -156,16 +129,6 @@ function JobCard({ job }) {
 
       <Company>{company}</Company>
 
-      <MetaList>
-        <MetaLine>
-          <MetaIcon aria-hidden="true">📍</MetaIcon>
-          <MetaText>{location}</MetaText>
-        </MetaLine>
-        <MetaLine>
-          <MetaIcon aria-hidden="true">🗓️</MetaIcon>
-          <MetaText>{exp}</MetaText>
-        </MetaLine>
-      </MetaList>
 
       {Array.isArray(skills) && skills.length > 0 && (
         <SkillsRow>
@@ -176,7 +139,9 @@ function JobCard({ job }) {
       )}
 
       <CardActions>
-        <DetailBtn type="button">상세보기</DetailBtn>
+        <DetailBtn type="button" onClick={onOpen}>
+          상세보기
+        </DetailBtn>
       </CardActions>
     </JobCardWrap>
   );
@@ -187,16 +152,12 @@ export default function CustomPage() {
 
   const [filters, setFilters] = useState({
     jc_code: "",
-    jr_code: "",
-    jp_employment_type: "",
-    jp_location: "",
+    tech_text: "",
+    role_text: "",
   });
 
   const [options, setOptions] = useState({
     categories: [],
-    roles: [],
-    employmentTypes: [],
-    locations: [],
   });
 
   const [optLoading, setOptLoading] = useState(false);
@@ -208,102 +169,138 @@ export default function CustomPage() {
   const visibleJobs = useMemo(() => jobs.slice(0, 4), [jobs]);
   const showResults = hasSearched;
 
-  // ✅ QuestionPage처럼 "절대주소"로 고정
-  const API_BASE = "http://localhost:3000";
+  // 1) 옵션(카테고리) 가져오는 API (기존 API_BASE 사용)
+  const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
-  const fetchJson = async (path, init) => {
-    const res = await fetch(`${API_BASE}${path}`, {
+  // 공통 JSON fetch (정상 완성본)
+  const fetchJson = async (path, init = {}) => {
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, {
       credentials: "include",
       ...init,
     });
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `Request failed: ${res.status}`);
+    const text = await res.text().catch(() => "");
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
     }
-    return res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || `Request failed: ${res.status}`);
+    }
+    return data;
   };
 
-  // 1) 페이지 로딩 시 옵션 불러오기
+  // 2) 매칭 API는 지금 하드코딩(localhost:3333)을 쓰고 있으니, 함수도 그에 맞게 단순화
+  const fetchAny = async (url, init = {}) => {
+    const res = await fetch(url, { credentials: "include", ...init });
+
+    const ct = res.headers.get("content-type");
+    const text = await res.text().catch(() => "");
+
+    console.log("MATCH status:", res.status);
+    console.log("MATCH content-type:", ct);
+    console.log("MATCH raw text:", text);
+
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || `Request failed: ${res.status}`);
+    }
+
+    return data;
+  };
+
+
+  const normalizeCategories = (data) => {
+    if (!data) return [];
+
+    if (Array.isArray(data)) {
+      return data
+        .map((s) => String(s ?? "").trim())
+        .filter(Boolean)
+        .map((s) => ({ jc_code: s, jc_name: s }));
+    }
+
+    const raw =
+      data.categories ??
+      data.jobCats ??
+      data.job_cats ??
+      data.jobcats ??
+      data.job_categories ??
+      null;
+
+    if (!raw) return [];
+
+    if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "object") {
+      const first = raw[0];
+      if ("jc_code" in first && "jc_name" in first) return raw;
+
+      if ("job_cat" in first) {
+        return raw
+          .map((r) => String(r.job_cat ?? "").trim())
+          .filter(Boolean)
+          .map((s) => ({ jc_code: s, jc_name: s }));
+      }
+    }
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map((s) => String(s ?? "").trim())
+        .filter(Boolean)
+        .map((s) => ({ jc_code: s, jc_name: s }));
+    }
+
+    return [];
+  };
+
   useEffect(() => {
     let ignore = false;
 
-    const loadBaseOptions = async () => {
+    const loadCategories = async () => {
       setOptLoading(true);
       try {
-        const data = await fetchJson("/api/custom/jobs");
+        const data = await fetchJson("/custom/jobs");
         if (ignore) return;
 
         setOptions({
-          categories: data.categories ?? [],
-          roles: data.roles ?? [],
-          employmentTypes: data.employmentTypes ?? [],
-          locations: data.locations ?? [],
+          categories: normalizeCategories(data),
         });
       } catch (e) {
-        console.error(e);
-        if (!ignore) {
-          setOptions((prev) => ({
-            ...prev,
-            roles: [],
-          }));
-        }
+        console.error("jobs categories fetch failed:", e);
+        if (!ignore) setOptions({ categories: [] });
       } finally {
         if (!ignore) setOptLoading(false);
       }
     };
 
-    loadBaseOptions();
+    loadCategories();
 
     return () => {
       ignore = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 2) 직업별 바뀌면 직무 목록 불러오기
-  useEffect(() => {
-    let ignore = false;
-
-    const loadRoles = async () => {
-      if (!filters.jc_code) {
-        setOptions((prev) => ({ ...prev, roles: [] }));
-        return;
-      }
-
-      setOptLoading(true);
-      try {
-        const data = await fetchJson(
-          `/api/custom/jobs?jc_code=${encodeURIComponent(filters.jc_code)}`
-        );
-
-        if (ignore) return;
-
-        setOptions((prev) => ({
-          ...prev,
-          roles: data.roles ?? [],
-        }));
-      } catch (e) {
-        console.error(e);
-        if (!ignore) setOptions((prev) => ({ ...prev, roles: [] }));
-      } finally {
-        if (!ignore) setOptLoading(false);
-      }
-    };
-
-    loadRoles();
-
-    return () => {
-      ignore = true;
-    };
-  }, [filters.jc_code]);
-
-  // 3) 공고 찾기
   const onSearch = async () => {
     setHasSearched(true);
 
     if (!pickedFile) {
-      alert("자기소개서를 업로드해 주세요.");
+      alert("자기소개서 파일을 업로드해 주세요.");
+      return;
+    }
+
+    // 백엔드가 PDF만 받는다면, 프론트도 사전 차단
+    // (doc/docx/txt 허용이면 이 블록을 제거하거나 백엔드도 같이 수정해야 함)
+    if (pickedFile.type && pickedFile.type !== "application/pdf") {
+      alert("현재는 PDF 파일만 업로드할 수 있어요.");
       return;
     }
 
@@ -315,22 +312,43 @@ export default function CustomPage() {
     setIsLoading(true);
 
     try {
-      // ✅ 설치 없이 진행하려고 JSON으로 보냄
-      const data = await fetchJson("/api/custom/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jc_code: filters.jc_code,
-          jr_code: filters.jr_code || null,
-          jp_employment_type: filters.jp_employment_type || null,
-          jp_location: filters.jp_location || null,
-        }),
-      });
+      const selected = (options.categories || []).find(
+        (c) => String(c.jc_code) === String(filters.jc_code)
+      );
+      const jobCatName = selected?.jc_name || "";
 
-      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      if (!jobCatName) {
+        alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
+        return;
+      }
+
+      // 임시 제한 로직 유지 (원하면 제거 가능)
+      const cat = ["IT개발·데이터", "디자인", "서비스"];
+      if (!cat.includes(jobCatName)) {
+        alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append("file", pickedFile); // 백엔드 UploadFile 필드명과 반드시 일치해야 함
+      fd.append("job_cat", jobCatName);
+      fd.append("tech_text", filters.tech_text ?? "");
+      fd.append("role_text", filters.role_text ?? "");
+      fd.append("limit", "4");
+
+      const data = await fetchAny(`${import.meta.env.VITE_AI_URL}/custom/match`, {
+        method: "POST",
+        body: fd,
+      });
+      console.log("fetchAny:", data)
+      const list = data.matched_jobs ?? [];
+      console.log(list)
+
+      setJobs(Array.isArray(list) ? list : []);
     } catch (e) {
-      console.error(e);
-      setJobs(SAMPLE_JOBS.slice(0, 4));
+      console.error("match failed:", e);
+      setJobs([]);
+      alert(`매칭 요청 실패: ${e?.message ?? e}`);
     } finally {
       setIsLoading(false);
     }
@@ -380,8 +398,17 @@ export default function CustomPage() {
               <LoadingText>공고를 찾는 중이에요...</LoadingText>
             ) : visibleJobs.length > 0 ? (
               <ResultsGrid>
-                {visibleJobs.map((job) => (
-                  <JobCard key={job.id ?? job.jp_id ?? job.title} job={job} />
+                {visibleJobs.map((job, idx) => (
+                  <JobCard
+                    key={
+                      idx ??
+                      job.company_name ??
+                      job.core_competencies ??
+                      job.required_tech_stack ??
+                      job.url
+                    }
+                    job={job}
+                  />
                 ))}
               </ResultsGrid>
             ) : (
@@ -394,7 +421,11 @@ export default function CustomPage() {
   );
 }
 
-// ===================== CSS
+// ===================== CSS (그대로 유지)
+
+const PANEL_W = 460;
+const CONTAINER_W = 1100;
+
 const Wrap = styled.main`
   width: 100%;
   padding: 20px 0 56px;
@@ -402,7 +433,7 @@ const Wrap = styled.main`
 `;
 
 const Container = styled.div`
-  width: min(var(--container-w), calc(100% - 32px));
+  width: min(${CONTAINER_W}px, calc(100% - 32px));
   margin: 0 auto;
 `;
 
@@ -465,7 +496,13 @@ const PanelTitle = styled.h2`
   font-weight: 900;
   letter-spacing: -0.2px;
   color: #111827;
+
+  width: ${PANEL_W}px;
   text-align: center;
+
+  @media (max-width: 520px) {
+    width: 100%;
+  }
 `;
 
 const Pink = styled.span`
@@ -473,7 +510,7 @@ const Pink = styled.span`
 `;
 
 const UploadRow = styled.div`
-  width: 320px;
+  width: ${PANEL_W}px;
   height: 34px;
   display: grid;
   grid-template-columns: 1fr 34px;
@@ -482,7 +519,7 @@ const UploadRow = styled.div`
   background: #ffffff;
   overflow: hidden;
 
-  @media (max-width: 420px) {
+  @media (max-width: 520px) {
     width: 100%;
   }
 `;
@@ -524,20 +561,30 @@ const HiddenFile = styled.input`
   display: none;
 `;
 
-const FiltersGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 110px);
-  gap: 10px;
+const FiltersCenter = styled.div`
+  width: ${PANEL_W}px;
+  display: flex;
   justify-content: center;
 
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: min(520px, 100%);
+  @media (max-width: 520px) {
+    width: 100%;
+  }
+`;
+
+const FiltersRow = styled.div`
+  width: ${PANEL_W}px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  @media (max-width: 520px) {
+    width: 100%;
+    gap: 8px;
   }
 `;
 
 const Select = styled.select`
-  height: 30px;
+  height: 34px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
   background: #ffffff;
@@ -546,6 +593,33 @@ const Select = styled.select`
   color: #374151;
   outline: none;
   cursor: pointer;
+
+  flex: 1;
+  min-width: 0;
+
+  &:focus {
+    border-color: rgba(224, 82, 105, 0.6);
+    box-shadow: 0 0 0 3px rgba(224, 82, 105, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const Input = styled.input`
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #374151;
+  outline: none;
+
+  flex: 1;
+  min-width: 0;
 
   &:focus {
     border-color: rgba(224, 82, 105, 0.6);
@@ -628,6 +702,7 @@ const JobCardWrap = styled.article`
   background: #ffffff;
   padding: 14px 14px 12px;
   min-height: 150px;
+  box-sizing: border-box;
 `;
 
 const JobTop = styled.div`
@@ -643,6 +718,22 @@ const JobTitle = styled.h3`
   font-weight: 900;
   letter-spacing: -0.2px;
   color: #111827;
+`;
+
+const TitleRow = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TitleIcon = styled.span`
+  font-size: 16px;
+  line-height: 1;
+  transform: translateY(1px);
+`;
+
+const TitleText = styled.span`
+  display: inline-block;
 `;
 
 const BadgeRow = styled.div`
@@ -683,6 +774,13 @@ const MetaList = styled.div`
   margin-top: 10px;
   display: grid;
   gap: 6px;
+
+  min-height: 38px;
+
+  &[data-hidden="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
 `;
 
 const MetaLine = styled.div`

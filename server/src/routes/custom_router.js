@@ -1,15 +1,12 @@
+// server/src/routes/custom_router.js
 const express = require("express");
 const router = express.Router();
 
 const {
-  selectCategories,
-  selectRolesByCategory,
-  selectEmploymentTypesDistinct,
-  selectLocationsDistinct,
+  selectJobCats,
+  selectKeywordsByJobCat,
   selectPostingsByFilters,
 } = require("../db/custom_db");
-
-
 
 function toTrimmedString(v) {
   if (v === undefined || v === null) return "";
@@ -29,19 +26,18 @@ function toPositiveInt(v, fallback) {
 }
 
 
+
+
+
+
 router.get("/jobs", async (req, res) => {
   try {
-    const jc_code = toOptionalString(req.query.jc_code);
+    const job_cat = toOptionalString(req.query.job_cat);
 
-    const [categories, employmentTypes, locations] = await Promise.all([
-      selectCategories(),
-      selectEmploymentTypesDistinct(),
-      selectLocationsDistinct(),
-    ]);
+    const jobCats = await selectJobCats();
+    const keywords = job_cat ? await selectKeywordsByJobCat(job_cat) : [];
 
-    const roles = jc_code ? await selectRolesByCategory(jc_code) : [];
-
-    return res.json({ categories, roles, employmentTypes, locations });
+    return res.json({ jobCats, keywords });
   } catch (err) {
     console.error("커스텀 옵션 조회 오류:", err);
     return res.status(500).json({ message: "커스텀 옵션 조회 실패" });
@@ -51,57 +47,65 @@ router.get("/jobs", async (req, res) => {
 
 
 
-
-
-
-
-//직업
-router.get("/job-categories", async (req, res) => {
+router.get("/job_categories", async (req, res) => {
   try {
-    const categories = await selectCategories();
-    return res.json(categories);
+    const jobCats = await selectJobCats();
+    return res.json(jobCats);
   } catch (err) {
-    console.error("직무 카테고리 조회 오류:", err);
-    return res.status(500).json({ message: "직무 카테고리 조회 실패" });
+    console.error("직업별(job_cat) 조회 오류:", err);
+    return res.status(500).json({ message: "직업별 조회 실패" });
   }
 });
 
 
 
-//직무
-router.get("/roles", async (req, res) => {
-  try {
-    const jc_code = toOptionalString(req.query.jc_code);
-    if (!jc_code) {
-      return res.status(400).json({ message: "jc_code는 필수입니다." });
-    }
 
-    const roles = await selectRolesByCategory(jc_code);
-    return res.json(roles);
+router.get("/job_keywords", async (req, res) => {
+  try {
+    const job_cat = toOptionalString(req.query.job_cat);
+    if (!job_cat)
+      return res.status(400).json({ message: "job_cat는 필수입니다." });
+
+    const keywords = await selectKeywordsByJobCat(job_cat);
+    return res.json(keywords);
   } catch (err) {
-    console.error("직무 역할 조회 오류:", err);
-    return res.status(500).json({ message: "직무 역할 조회 실패" });
+    console.error("직무 키워드 조회 오류:", err);
+    return res.status(500).json({ message: "직무 키워드 조회 실패" });
   }
 });
+
+
 
 
 router.post("/match", async (req, res) => {
   try {
-    const jc_code = toOptionalString(req.body?.jc_code);
-    const jr_code = toOptionalString(req.body?.jr_code);
-    const jp_employment_type = toOptionalString(req.body?.jp_employment_type);
-    const jp_location = toOptionalString(req.body?.jp_location);
+    const job_cat = toOptionalString(req.body?.job_cat);
+
+
+    const role_text = toTrimmedString(req.body?.role_text);
+    const tech_text = toTrimmedString(req.body?.tech_text);
+
+
+    const role_keywords = Array.isArray(req.body?.role_keywords)
+      ? req.body.role_keywords
+      : null;
+
+    const tech_keywords = Array.isArray(req.body?.tech_keywords)
+      ? req.body.tech_keywords
+      : null;
+
     const limit = toPositiveInt(req.body?.limit, 4);
 
-    if (!jc_code) {
-      return res.status(400).json({ message: "jc_code는 필수입니다." });
+    if (!job_cat) {
+      return res.status(400).json({ message: "job_cat는 필수입니다." });
     }
 
     const jobs = await selectPostingsByFilters({
-      jc_code,
-      jr_code,
-      jp_employment_type,
-      jp_location,
+      job_cat,
+      role_text,
+      tech_text,
+      role_phrases: role_keywords,
+      tech_phrases: tech_keywords,
       limit,
     });
 
@@ -113,8 +117,3 @@ router.post("/match", async (req, res) => {
 });
 
 module.exports = router;
-
-
-
-// 
-
