@@ -119,7 +119,7 @@ export default function TrendPage() {
       '
       {isStarting && (
         <LoadingOverlay>
-          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+          <img src={LOADING_GIF} style={{ width: "300px" }} alt="AI 분석 중" />
         </LoadingOverlay>
       )}
       <TitleWrapper>

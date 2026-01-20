@@ -272,7 +272,7 @@ export default function InterviewPage() {
       {/* 로딩 오버레이 - isStarting이 true일 때만 보임 */}
       {isStarting && (
         <LoadingOverlay>
-          <img src={LOADING_GIF} style={{ width: "150px" }} alt="AI 분석 중" />
+          <img src={LOADING_GIF} style={{ width: "300px" }} alt="AI 분석 중" />
         </LoadingOverlay>
       )}
       <Shell>
