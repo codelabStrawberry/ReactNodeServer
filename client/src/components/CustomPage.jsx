@@ -62,7 +62,7 @@ function FiltersBox({ value, onChange, options, loading }) {
           <Input
             type="text"
             placeholder="기술을 입력해 주세요."
-            value={value.tech_text ?? ""}
+            value={value.tech_text ?? "Java"}
             onChange={(e) =>
               onChange({
                 ...value,
@@ -75,7 +75,7 @@ function FiltersBox({ value, onChange, options, loading }) {
           <Input
             type="text"
             placeholder="매칭 키워드"
-            value={value.role_text ?? ""}
+            value={value.role_text ?? "Java"}
             onChange={(e) =>
               onChange({
                 ...value,
@@ -91,13 +91,10 @@ function FiltersBox({ value, onChange, options, loading }) {
 }
 
 function JobCard({ job }) {
-  const title = job.title ?? job.jp_title ?? job.job_title ?? "제목 없음";
-  const company =
-    job.company ?? job.jp_company ?? job.job_company ?? job.company_name ?? "회사";
-  const location = job.location ?? job.jp_location ?? job.job_location ?? "지역";
-  const exp = job.exp ?? job.jp_exp ?? job.job_exp ?? "경력";
-
-  const skillsRaw = job.skills ?? job.jp_skills ?? job.job_tech ?? [];
+  //const title = job.title ?? job.jp_title ?? job.job_title ?? "제목 없음";
+  const title = job.company_name;
+  const company = job.core_competencies;
+  const skillsRaw = job.required_tech_stack ?? [];
   const skills = Array.isArray(skillsRaw)
     ? skillsRaw
     : String(skillsRaw ?? "")
@@ -106,7 +103,7 @@ function JobCard({ job }) {
         .filter(Boolean);
 
   const onOpen = () => {
-    const url = job.url ?? job.jp_url ?? job.job_url;
+    const url = job.url;
     if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -114,7 +111,6 @@ function JobCard({ job }) {
   return (
     <JobCardWrap>
       <JobTop>
-
         <JobTitle>
           <TitleRow>
             <TitleIcon aria-hidden="true">💼</TitleIcon>
@@ -133,16 +129,6 @@ function JobCard({ job }) {
 
       <Company>{company}</Company>
 
-      <MetaList data-hidden="true" aria-hidden="true">
-        <MetaLine>
-          <MetaIcon aria-hidden="true">📍</MetaIcon>
-          <MetaText>{location}</MetaText>
-        </MetaLine>
-        <MetaLine>
-          <MetaIcon aria-hidden="true">🗓️</MetaIcon>
-          <MetaText>{exp}</MetaText>
-        </MetaLine>
-      </MetaList>
 
       {Array.isArray(skills) && skills.length > 0 && (
         <SkillsRow>
@@ -183,10 +169,13 @@ export default function CustomPage() {
   const visibleJobs = useMemo(() => jobs.slice(0, 4), [jobs]);
   const showResults = hasSearched;
 
-  const API_BASE = "http://localhost:3000";
+  // 1) 옵션(카테고리) 가져오는 API (기존 API_BASE 사용)
+  const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
+  // 공통 JSON fetch (정상 완성본)
   const fetchJson = async (path, init = {}) => {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, {
       credentials: "include",
       ...init,
     });
@@ -202,9 +191,34 @@ export default function CustomPage() {
     if (!res.ok) {
       throw new Error(data?.message || text || `Request failed: ${res.status}`);
     }
+    return data;
+  };
+
+  // 2) 매칭 API는 지금 하드코딩(localhost:3333)을 쓰고 있으니, 함수도 그에 맞게 단순화
+  const fetchAny = async (url, init = {}) => {
+    const res = await fetch(url, { credentials: "include", ...init });
+
+    const ct = res.headers.get("content-type");
+    const text = await res.text().catch(() => "");
+
+    console.log("MATCH status:", res.status);
+    console.log("MATCH content-type:", ct);
+    console.log("MATCH raw text:", text);
+
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || text || `Request failed: ${res.status}`);
+    }
 
     return data;
   };
+
 
   const normalizeCategories = (data) => {
     if (!data) return [];
@@ -254,7 +268,7 @@ export default function CustomPage() {
     const loadCategories = async () => {
       setOptLoading(true);
       try {
-        const data = await fetchJson("/api/custom/jobs");
+        const data = await fetchJson("/custom/jobs");
         if (ignore) return;
 
         setOptions({
@@ -273,10 +287,22 @@ export default function CustomPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSearch = async () => {
     setHasSearched(true);
+
+    if (!pickedFile) {
+      alert("자기소개서 파일을 업로드해 주세요.");
+      return;
+    }
+
+    // 백엔드가 PDF만 받는다면, 프론트도 사전 차단
+    // (doc/docx/txt 허용이면 이 블록을 제거하거나 백엔드도 같이 수정해야 함)
+    if (pickedFile.type && pickedFile.type !== "application/pdf") {
+      alert("현재는 PDF 파일만 업로드할 수 있어요.");
+      return;
+    }
 
     if (!filters.jc_code) {
       alert("직업별을 선택해 주세요.");
@@ -296,22 +322,33 @@ export default function CustomPage() {
         return;
       }
 
-      const data = await fetchJson("/api/custom/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          job_cat: jobCatName,
-          role_text: filters.role_text ?? "",
-          tech_text: filters.tech_text ?? "",
-          limit: 4,
-        }),
-      });
+      // 임시 제한 로직 유지 (원하면 제거 가능)
+      const cat = ["IT개발·데이터", "디자인", "서비스"];
+      if (!cat.includes(jobCatName)) {
+        alert("직업별 매핑이 안 됐어요. job_categories 데이터를 확인해 주세요.");
+        return;
+      }
 
-      const list = data.jobs ?? data.postings ?? data.results ?? data.items ?? [];
+      const fd = new FormData();
+      fd.append("file", pickedFile); // 백엔드 UploadFile 필드명과 반드시 일치해야 함
+      fd.append("job_cat", jobCatName);
+      fd.append("tech_text", filters.tech_text ?? "");
+      fd.append("role_text", filters.role_text ?? "");
+      fd.append("limit", "4");
+
+      const data = await fetchAny(`${import.meta.env.VITE_AI_URL}/custom/match`, {
+        method: "POST",
+        body: fd,
+      });
+      console.log("fetchAny:", data)
+      const list = data.matched_jobs ?? [];
+      console.log(list)
+
       setJobs(Array.isArray(list) ? list : []);
     } catch (e) {
       console.error("match failed:", e);
       setJobs([]);
+      alert(`매칭 요청 실패: ${e?.message ?? e}`);
     } finally {
       setIsLoading(false);
     }
@@ -364,11 +401,11 @@ export default function CustomPage() {
                 {visibleJobs.map((job, idx) => (
                   <JobCard
                     key={
-                      job.id ??
-                      job.jp_id ??
-                      job.recruit_id ??
-                      job.job_url ??
-                      `${job.title ?? job.jp_title ?? "job"}-${idx}`
+                      idx ??
+                      job.company_name ??
+                      job.core_competencies ??
+                      job.required_tech_stack ??
+                      job.url
                     }
                     job={job}
                   />
@@ -384,10 +421,7 @@ export default function CustomPage() {
   );
 }
 
-
-
-
-// ===================== CSS
+// ===================== CSS (그대로 유지)
 
 const PANEL_W = 460;
 const CONTAINER_W = 1100;
@@ -740,7 +774,6 @@ const MetaList = styled.div`
   margin-top: 10px;
   display: grid;
   gap: 6px;
-
 
   min-height: 38px;
 

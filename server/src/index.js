@@ -51,7 +51,7 @@ app.use("/job-categories", jobCategoryRouter);
 // 자기소개서 업로드 API 라우터 연결
 app.use("/job-resumes", jobResumeRouter);
 // 맞춤채용 라우터 연결
-app.use("/api/custom", customRouter);
+app.use("/custom", customRouter);
 // uuid 생성
 app.use("/api", uuidRouter);
 

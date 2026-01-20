@@ -29,7 +29,9 @@ async function selectJobCats() {
     ORDER BY ${nameCol} ASC
   `;
   const [rows] = await pool.query(sql);
-  return rows.map((r) => r.job_cat);
+  result = rows.map((r) => r.job_cat)
+  console.log(result)
+  return(result);
 }
 
 
