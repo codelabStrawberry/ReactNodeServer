@@ -1,10 +1,14 @@
+// FeaturesSection.jsx
 import styled from "@emotion/styled";
 
 function FeatureCard({ title, desc, iconText }) {
+  // 아이콘이 비어있을 때 기본 아이콘(선택)
+  const safeIcon = iconText && iconText.trim() ? iconText : "✨";
+
   return (
     <Card>
       <IconWrap>
-        <IconText aria-hidden="true">{iconText}</IconText>
+        <IconText aria-hidden="true">{safeIcon}</IconText>
       </IconWrap>
       <CardTitle>{title}</CardTitle>
       <CardDesc>{desc}</CardDesc>
@@ -24,6 +28,12 @@ const FEATURES = [
     desc:
       "이력서와 자기소개서를 AI로 분석하여 합격률을 높이는\n맞춤형 피드백을 제공합니다.",
     iconText: "📝",
+  },
+  {
+    title: "서류 피드백",
+    desc:
+      "자기소개서 텍스트를 AI가 진단 및 분석하여\n직무, 채용공고에 맞는 최적의 AI 코칭 피드백을 제안합니다.",
+    iconText: "🧠",
   },
   {
     title: "예상 면접 질문",
@@ -64,21 +74,17 @@ export default function FeaturesSection() {
           <Quote>'나에게 맞는 자리'</Quote>로 가장 정확하고 빠르게 가는 전략을 제시합니다.
         </Subtitle>
 
-        <GridTop>
-          {FEATURES.slice(0, 3).map((f) => (
+        <Grid>
+          {FEATURES.map((f) => (
             <FeatureCard key={f.title} {...f} />
           ))}
-        </GridTop>
-
-        <GridBottom>
-          {FEATURES.slice(3).map((f) => (
-            <FeatureCard key={f.title} {...f} />
-          ))}
-        </GridBottom>
+        </Grid>
       </Container>
     </Wrap>
   );
 }
+
+
 
 
 
@@ -89,7 +95,7 @@ const Wrap = styled.section`
   min-height: 640px;
   background: #ffffffff;
   border-radius: 0px;
-  padding-top: 12px; 
+  padding-top: 12px;
 `;
 
 const Container = styled.div`
@@ -137,40 +143,23 @@ const Quote = styled.span`
   font-weight: 800;
 `;
 
-const GridTop = styled.div`
+
+const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(3, 340px);
   gap: 14px;
   margin-top: 22px;
   justify-content: center;
   justify-items: center;
 
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, auto);
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, 340px);
   }
+
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
-    gap: 12px;
   }
 `;
-
-const GridBottom = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, auto);
-  gap: 14px;
-  margin-top: 14px;
-  justify-content: center;
-  justify-items: center;
-
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, auto);
-  }
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-`;
-
 
 const Card = styled.article`
   width: 340px;
@@ -183,6 +172,10 @@ const Card = styled.article`
   text-align: left;
   padding: 18px;
   box-sizing: border-box;
+
+  @media (max-width: 640px) {
+    width: 100%;
+  }
 `;
 
 const IconWrap = styled.div`
