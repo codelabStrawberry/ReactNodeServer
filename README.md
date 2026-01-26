@@ -3,10 +3,10 @@
 React(Client)와 Node.js(Server)를 Docker로 구성하고,
 개발 환경과 배포 환경을 명확히 분리한 **실무용 풀스택 템플릿**입니다.
 
-* React: Vite 기반
-* API Server: Node.js (Express)
-* DB: MySQL / Redis (외부 Docker 컨테이너)
-* 배포: Nginx + GitHub Actions 자동 배포
+- React: Vite 기반
+- API Server: Node.js (Express)
+- DB: MySQL / Redis (외부 Docker 컨테이너)
+- 배포: Nginx + GitHub Actions 자동 배포
 
 ---
 
@@ -106,13 +106,13 @@ SERVER_PORT=3000
 ### 1️⃣ MySQL / Redis 실행 (외부 Docker)
 
 ```bash
-docker run -d --name mysql \
-  -e MYSQL_ROOT_PASSWORD=pass \
-  -e MYSQL_DATABASE=test \
+docker run -d --name mysql8 \
+  -e MYSQL_ROOT_PASSWORD=1234 \
+  -e MYSQL_DATABASE=board_db \
   -p 3306:3306 mysql:8
 
-docker run -d --name redis \
-  -p 6379:6379 redis
+docker run -d --name redis7 \
+  -p 6379:6379 redis:7
 ```
 
 ---
@@ -125,8 +125,8 @@ npm install
 npm run dev
 ```
 
-* 서버 주소: `http://localhost:3000`
-* API Prefix: `/api`
+- 서버 주소: `http://localhost:3000`
+- API Prefix: `/api`
 
 ---
 
@@ -138,15 +138,15 @@ npm install
 npm run dev
 ```
 
-* React 개발 서버: `http://localhost:5173`
-* API 요청은 `VITE_API_URL` 기준으로 처리됨
+- React 개발 서버: `http://localhost:5173`
+- API 요청은 `VITE_API_URL` 기준으로 처리됨
 
 ---
 
 ## 🗄️ MySQL 초기 테이블 생성
 
-* `server/src/db/init.sql` 참고
-* 서버 실행 전 1회 실행 권장
+- `server/src/db/init.sql` 참고
+- 서버 실행 전 1회 실행 권장
 
 ```bash
 docker exec -it mysql mysql -u root -p test < init.sql
@@ -162,59 +162,60 @@ docker exec -it mysql mysql -u root -p test < init.sql
 docker compose up -d --build
 ```
 
-* React: `http://서버IP`
-* API: `http://서버IP/api`
+- React: `http://서버IP`
+- API: `http://서버IP/api`
 
 ---
 
 ## 🔁 React 개발 / 배포 차이
 
-| 구분       | 개발              | 배포    |
-| -------- | --------------- | ----- |
+| 구분       | 개발            | 배포  |
+| ---------- | --------------- | ----- |
 | React 실행 | Vite Dev Server | Nginx |
 | API 호출   | localhost:3000  | /api  |
-| 프록시      | ❌               | ✅     |
+| 프록시     | ❌              | ✅    |
 
 ---
 
 ## 🔐 GitHub Actions 자동 배포
 
-* `main` 브랜치 push 시 자동 배포
-docker build -t vawing21/node ./server
-docker build -t vawing21/nginx ./client
-docker push vawing21/node
-docker push vawing21/nginx
+- `main` 브랜치 push 시 자동 배포
+  docker build -t vawing21/node ./server
+  docker build -t vawing21/nginx ./client
+  docker push vawing21/node
+  docker push vawing21/nginx
 
-* 
-docker pull vawing21/node
-docker pull vawing21/nginx
-docker-compose up -d --pull always
+- docker pull vawing21/node
+  docker pull vawing21/nginx
+  docker-compose up -d --pull always
 
 필요 Secrets:
 
-* `SERVER_HOST`
-* `SERVER_USER`
-* `SERVER_KEY`
+- `SERVER_HOST`
+- `SERVER_USER`
+- `SERVER_KEY`
 
 ---
 
 ## ✅ 외부 db 데이터 세팅
-파일의 내용으로 db 및 테이블 생성
-* init.sql 
-  
-export 파일
-* board_db_users.sql
-* board_db_posts.sql
 
+파일의 내용으로 db 및 테이블 생성
+
+- init.sql
+
+export 파일
+
+- board_db_users.sql
+- board_db_posts.sql
 
 ## ✅ Elastic Beanstalk 배포
+
 sudo apt install zip
+
 1. aws에서 zip 생성
-zip -r deploy.zip . -x ".git/*" "node_modules/*" "client/node_modules/*"
+   zip -r deploy.zip . -x ".git/_" "node_modules/_" "client/node_modules/\*"
 2. 로컬 PC로 복사
-scp -i aws-key.pem ubuntu@ec2-13-55-35-203.ap-southeast-2.compute.amazonaws.com:/home/ubuntu/ReactNodeServer/deploy.zip  .
+   scp -i aws-key.pem ubuntu@ec2-13-55-35-203.ap-southeast-2.compute.amazonaws.com:/home/ubuntu/ReactNodeServer/deploy.zip .
 3. Elastic Beanstalk 배포화면 참고
- - git Issues 주소 : https://github.com/codelabStrawberry/ReactNodeServer/issues/22
 
-
-
+- git Issues 주소 : https://github.com/codelabStrawberry/ReactNodeServer/issues/22
